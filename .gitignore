@@ -10,6 +10,7 @@ dist
 *.lo
 .deps
 .libs
+m4/
 .dirstamp
 ltmain.sh
 libtool
@@ -34,6 +35,6 @@ missing
 depcomp
 install-sh
 config.sub
-mink_pkg_config.h
+umink_pkg_config.h
 tags
 *.pyc

@@ -8,7 +8,6 @@
  *
  */
 
-#define _DEFAULT_SOURCE
 #include <stdlib.h>
 #include <stdarg.h>
 #include <unistd.h>

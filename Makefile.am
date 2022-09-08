@@ -23,11 +23,16 @@ COMMON_INCLUDES = -I. -Isrc/include
 confdir = $(sysconfdir)/umink
 
 # convenience libraries
-noinst_LTLIBRARIES = libumd.la
+noinst_LTLIBRARIES = libumd.la \
+                     libumplg.la
 
 # umink daemon
 libumd_la_SOURCES = src/umd/umdaemon.c
 libumd_la_CFLAGS = ${COMMON_INCLUDES}
+
+# umink plugins
+libumplg_la_SOURCES = src/utils/umink_plugin.c
+libumplg_la_CFLAGS = ${COMMON_INCLUDES}
 
 # programs
 bin_PROGRAMS = sysagentd
