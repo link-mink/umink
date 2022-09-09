@@ -110,6 +110,11 @@ AC_CHECK_LIB([pthread],
              [pthread_create], ,
              AC_MSG_ERROR([pthread library not found!]))
 
+# /**********/
+# /* json-c */
+# /**********/
+PKG_CHECK_MODULES([JSON_C], [json-c], [], [AC_MSG_ERROR([json-c not found!])])
+
 # /****************************/
 # /* Checks for header files. */
 # /****************************/

@@ -34,20 +34,30 @@ libumd_la_CFLAGS = ${COMMON_INCLUDES}
 libumplg_la_SOURCES = src/utils/umink_plugin.c
 libumplg_la_CFLAGS = ${COMMON_INCLUDES}
 
-# programs
+# programs and libraries
 bin_PROGRAMS = sysagentd
+pkglib_LTLIBRARIES =
 
 # sysagent
 sysagentd_SOURCES = src/services/sysagent/sysagentd.c
 sysagentd_CFLAGS = ${COMMON_INCLUDES} \
+                   ${JSON_C_CFLAGS} \
                    -Isrc/services/sysagent
 sysagentd_LDFLAGS = -export-dynamic
-sysagentd_LDADD = libumd.la
-
+sysagentd_LDADD = libumd.la \
+                  libumplg.la \
+                  ${JSON_C_LIBS} \
+                  -ldl
 
 # cleanup rule
 distclean-local: distclean-ax-prefix-umink-pkg-config-h
 distclean-ax-prefix-umink-pkg-config-h:
 	rm -f umink_pkg_config.h
 
+
+if ENABLE_LUA
+# sysagent lua plugin
+include src/services/sysagent/plugins/lua/Makefile.am
+#pkgdata_DATA = src/services/sysagent/plugins/lua/mink.lua
+endif
 

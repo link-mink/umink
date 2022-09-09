@@ -31,6 +31,47 @@ typedef struct umplg_hkd umplg_hkd_t;
 #define UMPLG_CMD_HNDLR_LOCAL   "run_local"
 #define UMPLG_CMD_LST           "COMMANDS"
 
+// plugin CMD ids
+enum umplg_cmd_t {
+    UNKNWON_COMMAND = 0,
+    CMD_GET_SYSINFO = 1,
+    CMD_GET_CPUSTATS = 2,
+    CMD_GET_MEMINFO = 3,
+    CMD_GET_UNAME = 4,
+    CMD_GET_PROCESS_LST = 5,
+    CMD_GET_FILE_STAT = 6,
+    CMD_UBUS_CALL = 7,
+    CMD_SHELL_EXEC = 8,
+    CMD_SET_DATA = 9,
+    CMD_RUN_RULES = 10,
+    CMD_LOAD_RULES = 11,
+    CMD_AUTH = 12,
+    CMD_SOCKET_PROXY = 13,
+    CMD_FIRMWARE_UPDATE = 14,
+    CMD_SYSLOG_START = 15,
+    CMD_SYSLOG_STOP = 16,
+    CMD_REMOTE_EXEC_START = 17,
+    CMD_REMOTE_EXEC_STOP = 18,
+    CMD_GET_SYSMON_DATA = 19,
+    CMD_NET_TCP_SEND = 20,
+    CMD_CG2_GROUP_CREATE = 21,
+    CMD_CG2_GROUP_DELETE = 22,
+    CMD_CG2_GROUPS_LST = 23,
+    CMD_CG2_CONTROLLER_GET = 24,
+    CMD_CG2_CONTROLLER_SET = 25,
+    CMD_CG2_CONTROLLERS_LST = 26,
+    CMD_SYSD_FWLD_GET_ZONES = 27,
+    CMD_SYSD_FWLD_GET_RICH_RULES = 28,
+    CMD_SYSD_FWLD_ADD_RICH_RULE = 29,
+    CMD_SYSD_FWLD_DEL_RICH_RULE = 30,
+    CMD_SYSD_FWLD_RELOAD = 31,
+    CMD_MODBUS_WRITE_BIT = 32,
+    CMD_MODBUS_READ_BITS = 33,
+    CMD_NDPI_GET_STATS = 34,
+    CMD_MQTT_PUBLISH = 35,
+    CMD_LUA_CALL = 36
+};
+
 /**
  * Plugin init handler
  *
@@ -129,14 +170,22 @@ struct umplg_hkd {
 
 // signal handler descriptor
 struct umplg_sh {
+    // signal id
+    char *id;
     // singal invocation method
     umplg_shfn_t run;
+    // hashable
+    UT_hash_handle hh;
 };
 
 // plugin manager descriptor
 struct umplg_mngr {
+    // array of registered plugins
     UT_array *plgs;
+    // hashmap of plugin <-> hook mappings
     umplg_hkd_t *hooks;
+    // hasmap of registered signals
+    umplg_sh_t *signals;
 };
 
 // create plugin manager
@@ -179,7 +228,7 @@ int umplg_run(umplg_mngr_t *pm,
               bool is_local);
 
 // register signal handler
-int umplg_reg_signal(umplg_mngr_t *pm, const char *s, umplg_sh_t *sh);
+int umplg_reg_signal(umplg_mngr_t *pm, umplg_sh_t *sh);
 
 // process signal
 int umplg_proc_signal(umplg_mngr_t *pm,
