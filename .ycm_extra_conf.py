@@ -51,6 +51,7 @@ flags = [
 '-x','c',
 '-isystem','cpp/llvm/tools/clang/include',
 '-I',os.path.join(DIR_HOME, '.local/include'),
+'-I','/usr/include/json-c',
 '-I','.',
 '-I','src/include',
 '-I','src/services/sysagent'

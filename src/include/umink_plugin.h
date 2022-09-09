@@ -186,6 +186,8 @@ struct umplg_mngr {
     umplg_hkd_t *hooks;
     // hasmap of registered signals
     umplg_sh_t *signals;
+    // configuration data
+    void *cfg;
 };
 
 // create plugin manager
