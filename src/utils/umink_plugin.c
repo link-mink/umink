@@ -47,15 +47,18 @@ umplgd_t *umplg_load(umplg_mngr_t *pm, const char *fpath){
     }
 
     // create descriptor
-    umplgd_t *pd = malloc(sizeof(umplgd_t));
-    // set data
-    pd->handle = h;
-    pd->name = strdup(fpath);
-    pd->type = 0;
-    pd->cmdh = cmdh;
-    pd->cmdh_l = cmdh_l;
-    pd->termh = term;
-    pd->data = NULL;
+    umplgd_t pd = {
+        .handle = h,
+        .name = strdup(fpath),
+        .type = 0,
+        .cmdh = cmdh,
+        .cmdh_l = cmdh_l,
+        .termh = term,
+        .data = NULL
+    };
+    // add to list
+    utarray_push_back(pm->plgs, &pd);
+    umplgd_t *pdp = utarray_back(pm->plgs);
 
     // attach hooks to plugin
     tmp_rh = reg_hooks;
@@ -63,7 +66,7 @@ umplgd_t *umplg_load(umplg_mngr_t *pm, const char *fpath){
         // create new hook descriptor
         hook = malloc(sizeof(umplg_hkd_t));
         hook->id = *tmp_rh;
-        hook->plgp = pd;
+        hook->plgp = pdp;
         // add to map
         HASH_ADD_INT(pm->hooks, id, hook);
         // next
@@ -71,12 +74,9 @@ umplgd_t *umplg_load(umplg_mngr_t *pm, const char *fpath){
     }
 
     // run ninit method
-    if (!init(pm, pd)) {
-        // add to list
-        utarray_push_back(pm->plgs, pd);
-    }
+    init(pm, pdp);
     // return descriptor
-    return pd;
+    return pdp;
 }
 
 
@@ -170,7 +170,7 @@ void umplg_free_mngr(umplg_mngr_t *pm) {
         // free mem
         dlclose(pd->handle);
         free(pd->name);
-        free(pd);
+        //free(pd);
     }
     // release plugin manager memory
     utarray_free(pm->plgs);

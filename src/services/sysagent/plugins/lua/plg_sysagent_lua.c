@@ -10,13 +10,18 @@
 
 #include <umink_pkg_config.h>
 #include <umink_plugin.h>
+#include <umatomic.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <string.h>
 #include <umdaemon.h>
 #include <linkhash.h>
 #include <uthash.h>
+#include <time.h>
 #include <json_object.h>
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 
 /*************/
 /* Plugin ID */
@@ -55,6 +60,8 @@ struct lua_env_d {
     uint8_t active;
     // path to lua script
     char *path;
+    // thread
+    pthread_t th;
     // hashable
     UT_hash_handle hh;
 };
@@ -128,6 +135,87 @@ void lenvm_process_envs(struct lua_env_mngr *lem,
     pthread_mutex_unlock(&lem->mtx);
 }
 
+/*******************/
+/* LUA Environment */
+/*******************/
+static void *th_lua_env(void *arg) {
+    // lua envd
+    struct lua_env_d *env = arg;
+    // lua state
+    lua_State *L = luaL_newstate();
+    if (!L) {
+        umd_log(UMD, UMD_LLT_ERROR,
+                "plg_lua: [cannot create Lua environment]");
+        return NULL;
+    }
+    // init lua
+    luaL_openlibs(L);
+
+    // load lua script
+    FILE *f = fopen(env->path, "r");
+    if (f == NULL) {
+        return NULL;
+    }
+    if(fseek(f, 0, SEEK_END) < 0){
+        fclose(f);
+        return NULL;
+    }
+    int32_t fsz = ftell(f);
+    if (fsz <= 0) {
+        fclose(f);
+        return NULL;
+    }
+
+    char *lua_s = calloc(fsz + 1, 1);
+    rewind(f);
+    fread(lua_s, fsz, 1, f);
+    fclose(f);
+
+    // load lua script
+    if (luaL_loadstring(L, lua_s)) {
+        umd_log(UMD, UMD_LLT_ERROR,
+                "plg_lua: [cannot load Lua script (%s)]",
+                env->path);
+        lua_close(L);
+        return NULL;
+    }
+
+    // sleep interval
+    uint64_t sec = env->interval / 1000;
+    uint64_t nsec = (uint64_t)env->interval % 1000 * 1000000;
+    struct timespec st = {sec, nsec};
+
+    // run
+    while (!umd_is_terminating() && UM_ATOMIC_GET(&env->active)) {
+        // copy precompiled lua chunk (pcall removes it)
+        lua_pushvalue(L, -1);
+        // push plugin manager pointer
+        lua_pushlightuserdata(L, NULL);
+        // run lua script
+        if(lua_pcall(L, 1, 1, 0)){
+            umd_log(UMD, UMD_LLT_ERROR, "plg_lua: [%s]", lua_tostring(L, -1));
+        }
+        // pop result or error message
+        lua_pop(L, 1);
+
+        // one-time only
+        if (env->interval == 0) {
+            break;
+
+        // next iteration
+        } else {
+            nanosleep(&st, NULL);
+        }
+
+
+    }
+
+    // remove lua state
+    lua_close(L);
+
+    return NULL;
+}
+
 // process plugin configuration
 static int process_cfg(umplg_mngr_t *pm, struct lua_env_mngr *lem) {
     // get config
@@ -159,7 +247,7 @@ static int process_cfg(umplg_mngr_t *pm, struct lua_env_mngr *lem) {
         struct lua_env_d *env = malloc(sizeof(struct lua_env_d));
         env->name = strdup("CMD_CALL");
         env->interval = 0;
-        env->active = 1;
+        UM_ATOMIC_COMP_SWAP(&env->active, 0, 1);
         env->path = strdup(json_object_get_string(jobj));
         // add to list
         lenvm_new_envd(lem, env);
@@ -175,7 +263,7 @@ static int process_cfg(umplg_mngr_t *pm, struct lua_env_mngr *lem) {
             // check env object type
             if (!json_object_is_type(v, json_type_object)) {
                 umd_log(UMD, UMD_LLT_ERROR,
-                        "plg_lua: [cannot start LUA environment]");
+                        "plg_lua: [cannot start Lua environment]");
                 return 4;
             }
             // *******************************
@@ -217,6 +305,7 @@ static int process_cfg(umplg_mngr_t *pm, struct lua_env_mngr *lem) {
             if (fseek(f, 0, SEEK_END) < 0) {
                 umd_log(UMD, UMD_LLT_ERROR,
                         "plg_lua: [malformed Lua script (%s)]", s_p);
+                fclose(f);
                 return 7;
             }
             int32_t fsz = ftell(f);
@@ -231,7 +320,7 @@ static int process_cfg(umplg_mngr_t *pm, struct lua_env_mngr *lem) {
             struct lua_env_d *env = malloc(sizeof(struct lua_env_d));
             env->name = strdup(json_object_get_string(j_n));
             env->interval = json_object_get_uint64(j_int);
-            env->active = 1;
+            UM_ATOMIC_COMP_SWAP(&env->active, 0, json_object_get_boolean(j_as));
             env->path = strdup(json_object_get_string(j_p));
 
             // register events
@@ -262,6 +351,13 @@ static int process_cfg(umplg_mngr_t *pm, struct lua_env_mngr *lem) {
     return 0;
 }
 
+static void process_lua_envs(struct lua_env_d *env) {
+    printf("Procesing env [%s]\n", env->path);
+    if(pthread_create(&env->th, NULL, th_lua_env, env)){
+        printf("cannot run env\n");
+    }
+}
+
 /****************/
 /* init handler */
 /****************/
@@ -272,7 +368,9 @@ int init(umplg_mngr_t *pm, umplgd_t *pd) {
         umd_log(UMD, UMD_LLT_ERROR,
                 "plg_lua: [cannot process plugin configuration]");
     }
-    // TODO
+    // create environments
+    lenvm_process_envs(lem, &process_lua_envs);
+
     return 0;
 }
 

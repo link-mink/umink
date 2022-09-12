@@ -52,6 +52,7 @@ flags = [
 '-isystem','cpp/llvm/tools/clang/include',
 '-I',os.path.join(DIR_HOME, '.local/include'),
 '-I','/usr/include/json-c',
+'-I','/usr/include/luajit-2.1',
 '-I','.',
 '-I','src/include',
 '-I','src/services/sysagent'
