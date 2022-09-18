@@ -120,6 +120,10 @@ int umplg_reg_signal(umplg_mngr_t *pm, umplg_sh_t *sh) {
     if (tmp_shd != NULL) {
         return 1;
     }
+    // run init
+    if (sh->init != NULL) {
+        sh->init(sh, NULL);
+    }
     // add signal
     HASH_ADD_KEYPTR(hh, pm->signals, sh->id, strlen(sh->id), sh);
 
@@ -130,7 +134,8 @@ int umplg_reg_signal(umplg_mngr_t *pm, umplg_sh_t *sh) {
 int umplg_proc_signal(umplg_mngr_t *pm,
                       const char *s,
                       umplg_data_std_t *d_in,
-                      char *d_out) {
+                      char *d_out,
+                      size_t out_sz) {
 
     // single handler descriptor
     umplg_sh_t *tmp_shd = NULL;
@@ -139,9 +144,8 @@ int umplg_proc_signal(umplg_mngr_t *pm,
     if (tmp_shd == NULL){
         return 1;
     }
-
-    // no error
-    return 0;
+    // run
+    return tmp_shd->run(tmp_shd, d_in, d_out, out_sz);
 }
 
 umplg_mngr_t *umplg_new_mngr() {
@@ -176,4 +180,89 @@ void umplg_free_mngr(umplg_mngr_t *pm) {
     utarray_free(pm->plgs);
     HASH_CLEAR(hh, pm->hooks);
     free(pm);
+}
+
+static void std_items_copy(void *_dst, const void *_src) {
+    // cast to hashmaps
+    umplg_data_std_items_t *dst = (umplg_data_std_items_t *)_dst;
+    umplg_data_std_items_t *src = (umplg_data_std_items_t *)_src;
+    // temp pointers
+    umplg_data_std_item_t *s, *tmp, *n;
+    // init hashmap to NULL
+    dst->table = NULL;
+    // deep copy hash items
+    HASH_ITER(hh, src->table, s, tmp) {
+        n = malloc(sizeof(umplg_data_std_item_t));
+        n->name = strdup(s->name);
+        n->value = strdup(s->value);
+        HASH_ADD_KEYPTR(hh, dst->table, n->name, strlen(n->name), n);
+    }
+}
+
+static void std_items_dtor(void *_elt) {
+    // cast to hashmaps
+    umplg_data_std_items_t *elt = (umplg_data_std_items_t *)_elt;
+    // temp pointers
+    umplg_data_std_item_t *s, *tmp;
+    // free and remove hashmap elements
+    HASH_ITER(hh, elt->table, s, tmp) {
+        HASH_DEL(elt->table, s);
+        free(s->name);
+        free(s->value);
+        free(s);
+    }
+}
+
+void umplg_stdd_init(umplg_data_std_t *data) {
+    // sanity check
+    if (data == NULL) {
+        return;
+    }
+    // create new std data
+    if (data->items == NULL) {
+        // icd
+        UT_icd icd = {sizeof(umplg_data_std_items_t),
+                      NULL,
+                      &std_items_copy,
+                      &std_items_dtor};
+
+        // new items array
+        utarray_new(data->items, &icd);
+    }
+}
+
+void umplg_stdd_free(umplg_data_std_t *data) {
+    // sanity check
+    if (data == NULL || data->items == NULL) {
+        return;
+    }
+    utarray_free(data->items);
+}
+
+int umplg_stdd_items_add(umplg_data_std_t *data, umplg_data_std_items_t *items) {
+    // sanity check
+    if (data == NULL || items == NULL) {
+        return 1;
+    }
+    // create new std data table
+    if (data->items == NULL) {
+        umplg_stdd_init(data);
+    }
+    // add new item
+    utarray_push_back(data->items, items);
+
+    // success
+    return 0;
+}
+
+int umplg_stdd_item_add(umplg_data_std_items_t *items, umplg_data_std_item_t *item) {
+    // sanity check
+    if (items == NULL || item == NULL) {
+        return 1;
+    }
+    // add item
+    HASH_ADD_KEYPTR(hh, items->table, item->name, strlen(item->name), item);
+
+    // success
+    return 0;
 }

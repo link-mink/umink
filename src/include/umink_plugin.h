@@ -21,6 +21,8 @@ typedef struct umplg_mngrd umplg_mngrd_t;
 typedef struct umplg_idata umplg_idata_t;
 typedef struct umplg_mngr umplg_mngr_t;
 typedef struct umplg_sh umplg_sh_t;
+typedef struct umplg_data_std_items umplg_data_std_items_t;
+typedef struct umplg_data_std_item umplg_data_std_item_t;
 typedef struct umplg_data_std umplg_data_std_t;
 typedef struct umplg_hkd umplg_hkd_t;
 
@@ -103,16 +105,29 @@ typedef int (*umplg_cmdh_t)(umplg_mngr_t *pm,
                             umplgd_t *pd,
                             int cmd_id,
                             umplg_idata_t *data);
+/**
+ * Signal handler method (init)
+ *
+ * @param[in]   d_in      Pointer to signal handler descriptor
+ * @param[in]   d_in      Pointer to plugin standard input data
+ * @return      0 for success
+ */
+typedef int (*umplg_shfn_init_t)(umplg_sh_t *shd,
+                                 umplg_data_std_t *d_in);
 
 /**
- * Signal handler method
+ * Signal handler method (run)
  *
+ * @param[in]   d_in      Pointer to signal handler descriptor
  * @param[in]   d_in      Pointer to plugin standard input data
- * @param[in]   d_out     Pointer to plugin standard output data
- * @return      pointer to output data
+ * @param[in]   d_out     Pointer to output data buffer
+ * @param[in]   out_sz    Size of output data buffer
+ * @return      0 for success
  */
-typedef umplg_data_std_t *(*umplg_shfn_t)(umplg_data_std_t *d_in,
-                                          umplg_data_std_t *d_out);
+typedef int (*umplg_shfn_run_t)(umplg_sh_t *shd,
+                                umplg_data_std_t *d_in,
+                                char *d_out,
+                                size_t out_sz);
 
 // input data type for local interface
 enum umplgd_t {
@@ -127,9 +142,23 @@ enum umplgd_t {
     UMPLG_DT_STANDARD = 4
 };
 
+// stamdard data item
+struct umplg_data_std_item {
+    // name = value
+    char *name;
+    char *value;
+    // hashable
+    UT_hash_handle hh;
+};
+
+// standard data items
+struct umplg_data_std_items {
+    umplg_data_std_item_t *table;
+};
+
 // standard data descriptor
 struct umplg_data_std {
-    // TODO
+    UT_array *items;
 };
 
 // input data descriptor
@@ -173,7 +202,10 @@ struct umplg_sh {
     // signal id
     char *id;
     // singal invocation method
-    umplg_shfn_t run;
+    umplg_shfn_init_t init;
+    umplg_shfn_run_t run;
+    // extra args
+    UT_array *args;
     // hashable
     UT_hash_handle hh;
 };
@@ -236,6 +268,14 @@ int umplg_reg_signal(umplg_mngr_t *pm, umplg_sh_t *sh);
 int umplg_proc_signal(umplg_mngr_t *pm,
                       const char *s,
                       umplg_data_std_t *d_in,
-                      char *d_out);
+                      char *d_out,
+                      size_t out_sz);
+
+// standard data type
+int umplg_stdd_items_add(umplg_data_std_t *data, umplg_data_std_items_t *items);
+int umplg_stdd_item_add(umplg_data_std_items_t *items, umplg_data_std_item_t *item);
+void umplg_stdd_init(umplg_data_std_t *data);
+void umplg_stdd_free(umplg_data_std_t *data);
+
 
 #endif /* ifndef UMINK_PLUGIN */

@@ -22,6 +22,7 @@
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
+#include <utarray.h>
 
 /*************/
 /* Plugin ID */
@@ -60,6 +61,8 @@ struct lua_env_d {
     uint8_t active;
     // path to lua script
     char *path;
+    // plugin manager pointer
+    umplg_mngr_t *pm;
     // thread
     pthread_t th;
     // hashable
@@ -166,7 +169,7 @@ static void *th_lua_env(void *arg) {
         return NULL;
     }
 
-    char *lua_s = calloc(fsz + 1, 1);
+    char *lua_s = calloc(1, fsz + 1);
     rewind(f);
     fread(lua_s, fsz, 1, f);
     fclose(f);
@@ -190,7 +193,7 @@ static void *th_lua_env(void *arg) {
         // copy precompiled lua chunk (pcall removes it)
         lua_pushvalue(L, -1);
         // push plugin manager pointer
-        lua_pushlightuserdata(L, NULL);
+        lua_pushlightuserdata(L, env->pm);
         // run lua script
         if(lua_pcall(L, 1, 1, 0)){
             umd_log(UMD, UMD_LLT_ERROR, "plg_lua: [%s]", lua_tostring(L, -1));
@@ -214,6 +217,90 @@ static void *th_lua_env(void *arg) {
     lua_close(L);
 
     return NULL;
+}
+// lua signal handler (init)
+static int lua_sig_hndlr_init(umplg_sh_t *shd,
+                              umplg_data_std_t *d_in) {
+    // get lua env
+    struct lua_env_d **env = utarray_eltptr(shd->args, 1);
+
+    // lua state
+    lua_State *L = luaL_newstate();
+    if (!L) {
+        umd_log(UMD, UMD_LLT_ERROR,
+                "plg_lua: [cannot create Lua environment]");
+        return 1;
+    }
+    // init lua
+    luaL_openlibs(L);
+
+    // load lua script
+    FILE *f = fopen((*env)->path, "r");
+    if (f == NULL) {
+        printf("fopen err: %s %s\n", (*env)->name, (*env)->path);
+        return 2;
+    }
+    if(fseek(f, 0, SEEK_END) < 0){
+        fclose(f);
+        return 3;
+    }
+    int32_t fsz = ftell(f);
+    if (fsz <= 0) {
+        fclose(f);
+        return 4;
+    }
+
+    char *lua_s = calloc(1, fsz + 1);
+    rewind(f);
+    fread(lua_s, fsz, 1, f);
+    fclose(f);
+
+    // load lua script
+    if (luaL_loadstring(L, lua_s)) {
+        umd_log(UMD, UMD_LLT_ERROR,
+                "plg_lua: [cannot load Lua script (%s)]",
+                (*env)->path);
+        lua_close(L);
+        return 5;
+    }
+    // save state
+    utarray_push_back(shd->args, &L);
+
+    // success
+    return 0;
+}
+
+// lua signal handler (run)
+static int lua_sig_hndlr_run(umplg_sh_t *shd,
+                             umplg_data_std_t *d_in,
+                             char *d_out,
+                             size_t out_sz) {
+    // get plugin manager and lua env
+    umplg_mngr_t **pm = utarray_eltptr(shd->args, 0);
+    // get lua state
+    lua_State **L = utarray_eltptr(shd->args, 2);
+    // copy precompiled lua chunk (pcall removes it)
+    lua_pushvalue(*L, -1);
+    // push plugin manager pointer
+    lua_pushlightuserdata(*L, pm);
+    // push data
+    lua_pushlightuserdata(*L, d_in);
+    // run lua script
+    if (lua_pcall(*L, 2, 1, 0)) {
+        umd_log(UMD, UMD_LLT_ERROR, "plg_lua: [%s]", lua_tostring(*L, -1));
+    }
+    // check return (STRING)
+    if (lua_isstring(*L, -1)) {
+        snprintf(d_out, out_sz, "%s", lua_tostring(*L, -1));
+
+    // NUMBER
+    } else if (lua_isnumber(*L, -1)) {
+        snprintf(d_out, out_sz, "%f", lua_tonumber(*L, -1));
+    }
+    // pop result or error message
+    lua_pop(*L, 1);
+    // success
+    return 0;
 }
 
 // process plugin configuration
@@ -320,6 +407,7 @@ static int process_cfg(umplg_mngr_t *pm, struct lua_env_mngr *lem) {
             struct lua_env_d *env = malloc(sizeof(struct lua_env_d));
             env->name = strdup(json_object_get_string(j_n));
             env->interval = json_object_get_uint64(j_int);
+            env->pm = pm;
             UM_ATOMIC_COMP_SWAP(&env->active, 0, json_object_get_boolean(j_as));
             env->path = strdup(json_object_get_string(j_p));
 
@@ -336,6 +424,13 @@ static int process_cfg(umplg_mngr_t *pm, struct lua_env_mngr *lem) {
                 // create signal
                 umplg_sh_t *sh = malloc(sizeof(umplg_sh_t));
                 sh->id = strdup(json_object_get_string(v));
+                sh->run = &lua_sig_hndlr_run;
+                sh->init = &lua_sig_hndlr_init;
+                UT_icd icd = {sizeof(void *), NULL, NULL, NULL};
+                utarray_new(sh->args, &icd);
+                utarray_push_back(sh->args, &pm);
+                utarray_push_back(sh->args, &env);
+
                 // register signal
                 umplg_reg_signal(pm, sh);
                 umd_log(UMD, UMD_LLT_ERROR,
@@ -352,9 +447,13 @@ static int process_cfg(umplg_mngr_t *pm, struct lua_env_mngr *lem) {
 }
 
 static void process_lua_envs(struct lua_env_d *env) {
-    printf("Procesing env [%s]\n", env->path);
-    if(pthread_create(&env->th, NULL, th_lua_env, env)){
-        printf("cannot run env\n");
+    // check if ENV should auto-start
+    if (env->interval >= 0 && strcmp(env->name, "CMD_CALL") != 0) {
+        if (pthread_create(&env->th, NULL, th_lua_env, env)) {
+            umd_log(UMD, UMD_LLT_ERROR,
+                    "plg_lua: [cannot start [%s] environment",
+                    env->name);
+        }
     }
 }
 
