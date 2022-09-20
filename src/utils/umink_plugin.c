@@ -134,8 +134,8 @@ int umplg_reg_signal(umplg_mngr_t *pm, umplg_sh_t *sh) {
 int umplg_proc_signal(umplg_mngr_t *pm,
                       const char *s,
                       umplg_data_std_t *d_in,
-                      char *d_out,
-                      size_t out_sz) {
+                      char **d_out,
+                      size_t *out_sz) {
 
     // single handler descriptor
     umplg_sh_t *tmp_shd = NULL;

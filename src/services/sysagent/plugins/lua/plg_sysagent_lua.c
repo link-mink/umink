@@ -273,8 +273,8 @@ static int lua_sig_hndlr_init(umplg_sh_t *shd,
 // lua signal handler (run)
 static int lua_sig_hndlr_run(umplg_sh_t *shd,
                              umplg_data_std_t *d_in,
-                             char *d_out,
-                             size_t out_sz) {
+                             char **d_out,
+                             size_t *out_sz) {
     // get plugin manager and lua env
     umplg_mngr_t **pm = utarray_eltptr(shd->args, 0);
     // get lua state
@@ -291,11 +291,42 @@ static int lua_sig_hndlr_run(umplg_sh_t *shd,
     }
     // check return (STRING)
     if (lua_isstring(*L, -1)) {
-        snprintf(d_out, out_sz, "%s", lua_tostring(*L, -1));
+        // copy lua string to output buffer
+        size_t sz = strlen(lua_tostring(*L, -1)) + 1;
+        char *out = malloc(sz);
+        int r = snprintf(out, sz, "%s", lua_tostring(*L, -1));
+        // error (buffer too small)
+        if (r <= 0 || r >= sz) {
+            free(out);
+            *out_sz = 0;
+            // pop result or error message
+            lua_pop(*L, 1);
+            return 1;
+
+        // success
+        } else {
+            *d_out = out;
+            *out_sz = sz;
+        }
 
     // NUMBER
     } else if (lua_isnumber(*L, -1)) {
-        snprintf(d_out, out_sz, "%f", lua_tonumber(*L, -1));
+        // copy lua number to output buffer
+        size_t sz = 256;
+        char *out = malloc(256);
+        int r = snprintf(out, sz, "%f", lua_tonumber(*L, -1));
+        // error (buffer too small)
+        if (r <= 0 || r >= sz) {
+            *out_sz = 0;
+            // pop result or error message
+            lua_pop(*L, 1);
+            return 1;
+
+        // success
+        } else {
+            *d_out = out;
+            *out_sz = sz;
+        }
     }
     // pop result or error message
     lua_pop(*L, 1);

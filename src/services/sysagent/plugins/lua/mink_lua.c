@@ -38,9 +38,10 @@ char *mink_lua_signal(const char *s, const char *d, void *md) {
     umplg_stdd_item_add(&items, &item);
     umplg_stdd_items_add(&e_d, &items);
     // output buffer
-    char *b = malloc(1024);
+    char *b = NULL;
+    size_t sz = 0;
     // process signal
-    if (umplg_proc_signal(pm, s, &e_d, b, 1024) == 0) {
+    if (umplg_proc_signal(pm, s, &e_d, &b, &sz) == 0) {
         return b;
     }
     // error

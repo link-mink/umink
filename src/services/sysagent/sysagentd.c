@@ -226,44 +226,6 @@ static void init(sysagentdd_t *dd) {
     init_plugins(dd->pm, dd->plg_pth);
 }
 
-void std_items_init(void *_elt) {
-    umplg_data_std_items_t *elt = (umplg_data_std_items_t *)_elt;
-    elt->table = NULL;
-    printf("...init %p\n", elt->table);
-}
-
-void std_items_dtor(void *_elt) {
-    umplg_data_std_items_t *elt = (umplg_data_std_items_t *)_elt;
-
-    umplg_data_std_item_t *s, *tmp;
-
-    HASH_ITER(hh, elt->table, s, tmp) {
-        HASH_DEL(elt->table, s);
-        free(s->name);
-        free(s->value);
-        free(s);
-    }
-}
-
-void std_items_copy(void *_dst, const void *_src) {
-    umplg_data_std_items_t *dst = (umplg_data_std_items_t *)_dst;
-    umplg_data_std_items_t *src = (umplg_data_std_items_t *)_src;
-
-    umplg_data_std_item_t *s, *tmp, *n;
-    dst->table = NULL;
-
-    HASH_ITER(hh, src->table, s, tmp) {
-        n = malloc(sizeof(umplg_data_std_item_t));
-        n->name = strdup(s->name);
-        n->value = strdup(s->value);
-        HASH_ADD_KEYPTR(hh, dst->table, n->name, strlen(n->name), n);
-        printf("[%p name %s: value %s\n", dst->table, s->name, s->value);
-    }
-
-
-
-}
-
 // main
 int main(int argc, char **argv) {
     // create umink daemon

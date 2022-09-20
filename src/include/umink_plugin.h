@@ -118,16 +118,16 @@ typedef int (*umplg_shfn_init_t)(umplg_sh_t *shd,
 /**
  * Signal handler method (run)
  *
- * @param[in]   d_in      Pointer to signal handler descriptor
- * @param[in]   d_in      Pointer to plugin standard input data
- * @param[in]   d_out     Pointer to output data buffer
- * @param[in]   out_sz    Size of output data buffer
+ * @param[in]       d_in      Pointer to signal handler descriptor
+ * @param[in]       d_in      Pointer to plugin standard input data
+ * @param[in,out]   d_out     Output data buffer pointer
+ * @param[in,out]   out_sz    Output data size pointer
  * @return      0 for success
  */
 typedef int (*umplg_shfn_run_t)(umplg_sh_t *shd,
                                 umplg_data_std_t *d_in,
-                                char *d_out,
-                                size_t out_sz);
+                                char **d_out,
+                                size_t *out_sz);
 
 // input data type for local interface
 enum umplgd_t {
@@ -268,8 +268,8 @@ int umplg_reg_signal(umplg_mngr_t *pm, umplg_sh_t *sh);
 int umplg_proc_signal(umplg_mngr_t *pm,
                       const char *s,
                       umplg_data_std_t *d_in,
-                      char *d_out,
-                      size_t out_sz);
+                      char **d_out,
+                      size_t *out_sz);
 
 // standard data type
 int umplg_stdd_items_add(umplg_data_std_t *data, umplg_data_std_items_t *items);
