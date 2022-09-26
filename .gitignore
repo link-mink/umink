@@ -21,6 +21,7 @@ test-suite.log
 autom4te.cache
 /config.h
 /configure
+configure~
 config.h.in
 compile
 config.h.in~
