@@ -61,3 +61,8 @@ include src/services/sysagent/plugins/lua/Makefile.am
 #pkgdata_DATA = src/services/sysagent/plugins/lua/mink.lua
 endif
 
+if ENABLE_MQTT
+# sysagent mqtt plugin
+include src/services/sysagent/plugins/mqtt/Makefile.am
+endif
+
