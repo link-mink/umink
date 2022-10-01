@@ -7,4 +7,5 @@ plg_sysagent_mqtt_la_LDFLAGS = -version-info 1:0:0 \
                               -shared \
                               -module \
                               -export-dynamic
-plg_sysagent_mqtt_la_LIBADD = ${JSON_C_LIBS}
+plg_sysagent_mqtt_la_LIBADD = ${JSON_C_LIBS} \
+                              ${MQTT_LIBS}

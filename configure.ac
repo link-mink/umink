@@ -76,7 +76,7 @@ if test "x$enable_mqtt" != "xno"; then
     AC_CHECK_LIB([paho-mqtt3as],
                  [MQTTAsync_create],
                  [AC_SUBST([MQTT_LIBS], ["-lpaho-mqtt3as"])],
-                 [AC_MSG_ERROR([paho-mqtt3a library not found!])])
+                 [AC_MSG_ERROR([paho-mqtt3as library not found!])])
 
 fi
 

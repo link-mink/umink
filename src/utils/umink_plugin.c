@@ -10,6 +10,7 @@
 
 #include <umink_pkg_config.h>
 #include <umink_plugin.h>
+#include <umdaemon.h>
 #include <dlfcn.h>
 #include <stdio.h>
 
@@ -19,6 +20,7 @@ umplg_load(umplg_mngr_t *pm, const char *fpath)
     // open and resolve symbols now
     void *h = dlopen(fpath, RTLD_NOW | RTLD_GLOBAL);
     if (!h) {
+        umd_log(UMD, UMD_LLT_ERROR, "umplg_load: %s", dlerror());
         return NULL;
     }
 
@@ -33,6 +35,7 @@ umplg_load(umplg_mngr_t *pm, const char *fpath)
     // first 4 must exist
     if (!(reg_hooks && init && term && cmdh)) {
         dlclose(h);
+        umd_log(UMD, UMD_LLT_ERROR, "umplg_load: %s", dlerror());
         return NULL;
     }
     // check if all requested hooks are free
@@ -42,6 +45,7 @@ umplg_load(umplg_mngr_t *pm, const char *fpath)
         HASH_FIND_INT(pm->hooks, tmp_rh, hook);
         if (hook != NULL) {
             dlclose(h);
+            umd_log(UMD, UMD_LLT_ERROR, "umplg_load: %s", dlerror());
             return NULL;
         }
         tmp_rh++;

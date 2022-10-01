@@ -232,6 +232,7 @@ mqtt_mngr_add_conn(struct mqtt_conn_mngr *m, umplg_mngr_t *pm, struct json_objec
     }
     // new mqtt connectino
     struct mqtt_conn_d *c = mqtt_conn_new(pm);
+    c->name = strdup(json_object_get_string(j_name));
     // add to conn list
     HASH_ADD_KEYPTR(hh, m->conns, c->name, strlen(c->name), c);
     // return new conn
@@ -297,11 +298,11 @@ process_cfg(umplg_mngr_t *pm, struct mqtt_conn_mngr *mngr)
                 return 4;
             }
             // get connection values
-            struct json_object *j_n = json_object_object_get(v, "name");
-            struct json_object *j_addr = json_object_object_get(v, "address");
-            struct json_object *j_clid = json_object_object_get(v, "client_id");
-            struct json_object *j_usr = json_object_object_get(v, "username");
-            struct json_object *j_pwd = json_object_object_get(v, "password");
+            struct json_object *j_n = json_object_object_get(j_conn, "name");
+            struct json_object *j_addr = json_object_object_get(j_conn, "address");
+            struct json_object *j_clid = json_object_object_get(j_conn, "client_id");
+            struct json_object *j_usr = json_object_object_get(j_conn, "username");
+            struct json_object *j_pwd = json_object_object_get(j_conn, "password");
             // all values are mandatory
             if (!(j_n && j_addr && j_clid && j_usr && j_pwd)) {
                 umd_log(UMD,
@@ -322,12 +323,12 @@ process_cfg(umplg_mngr_t *pm, struct mqtt_conn_mngr *mngr)
                 return 6;
             }
             // create MQTT connection
-            struct mqtt_conn_d *conn = mqtt_mngr_add_conn(mngr, pm, v);
+            struct mqtt_conn_d *conn = mqtt_mngr_add_conn(mngr, pm, j_conn);
             if (!conn) {
                 continue;
             }
             // subscribe to topics
-            struct json_object *j_sub = json_object_object_get(v, "subscriptions");
+            struct json_object *j_sub = json_object_object_get(j_conn, "subscriptions");
             if (j_sub != NULL && json_object_is_type(j_sub, json_type_array)) {
                 int sub_l = json_object_array_length(j_sub);
                 for (int i = 0; i < sub_l; ++i) {
