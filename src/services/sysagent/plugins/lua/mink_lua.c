@@ -12,6 +12,14 @@
 #include <umink_plugin.h>
 #include <string.h>
 
+/*********/
+/* Types */
+/*********/
+typedef struct {
+    const char *key;
+    const char *value;
+} mink_cdata_column_t;
+
 /**********/
 /* Signal */
 /**********/
@@ -42,3 +50,75 @@ mink_lua_signal(const char *s, const char *d, void *md)
     // error
     return strdup("");
 }
+
+/*****************************/
+/* Get plugin data row count */
+/*****************************/
+size_t
+mink_lua_cmd_data_sz(void *p)
+{
+    if (p == NULL) {
+        return 0;
+    }
+    // cast (unsafe) to standard plugin data type
+    umplg_data_std_t *d = p;
+    // row count
+    return utarray_len(d->items);
+}
+
+/**************************************************/
+/* Get plugin data columns count for specific row */
+/**************************************************/
+size_t
+mink_lua_cmd_data_row_sz(const int r, void *p)
+{
+    // cast (unsafe) to standard plugin data type
+    umplg_data_std_t *d = p;
+    // verify row index
+    if (r >= utarray_len(d->items)) {
+        return 0;
+    }
+    // items elem at index
+    umplg_data_std_items_t *items = utarray_eltptr(d->items, r);
+    // column count for row at index
+    return HASH_COUNT(items->table);
+}
+
+/********************************/
+/* Get plugin data column value */
+/********************************/
+mink_cdata_column_t
+mink_lua_cmd_data_get_column(const int r, const int c, void *p)
+{
+    // get row count
+    size_t rc = mink_lua_cmd_data_sz(p);
+    // sanity check (rows)
+    if (rc <= r) {
+        mink_cdata_column_t cdata = { 0 };
+        return cdata;
+    }
+    // cast (unsafe) to standard plugin data type
+    umplg_data_std_t *d = p;
+    // get row at index
+    umplg_data_std_items_t *row = utarray_eltptr(d->items, r);
+    // sanity check (columns)
+    if (HASH_COUNT(row->table) <= c) {
+        mink_cdata_column_t cdata = { 0 };
+        return cdata;
+    }
+    // get column at index
+    umplg_data_std_item_t *column = NULL;
+    int i = 0;
+    for (column = row->table; column != NULL; column = column->hh.next) {
+        if (i == c) {
+            // return column value
+            mink_cdata_column_t cdata = { column->name, column->value };
+            return cdata;
+        }
+        ++i;
+    }
+
+    mink_cdata_column_t cdata = { 0 };
+    return cdata;
+}
+
