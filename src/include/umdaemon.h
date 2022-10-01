@@ -18,11 +18,12 @@
 #define UMD_ID_MAX_SZ 30
 
 // UMD log level
-enum umd_log_level_t {
-    UMD_LLT_ERROR   = 3,
+enum umd_log_level_t
+{
+    UMD_LLT_ERROR = 3,
     UMD_LLT_WARNING = 4,
-    UMD_LLT_INFO    = 6,
-    UMD_LLT_DEBUG   = 7
+    UMD_LLT_INFO = 6,
+    UMD_LLT_DEBUG = 7
 };
 
 // types
@@ -55,7 +56,6 @@ struct umdaemon {
     // user data
     void *data;
 };
-
 
 // running UMD
 extern umdaemon_t *UMD;

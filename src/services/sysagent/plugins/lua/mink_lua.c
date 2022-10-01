@@ -15,7 +15,9 @@
 /**********/
 /* Signal */
 /**********/
-char *mink_lua_signal(const char *s, const char *d, void *md) {
+char *
+mink_lua_signal(const char *s, const char *d, void *md)
+{
     // plugin manager
     umplg_mngr_t *pm = md;
     // check signal
@@ -23,16 +25,9 @@ char *mink_lua_signal(const char *s, const char *d, void *md) {
         return strdup("<SIGNAL UNDEFINED>");
     }
     // create std data
-    umplg_data_std_t e_d = {
-        .items = NULL
-    };
-    umplg_data_std_items_t items = {
-        .table = NULL
-    };
-    umplg_data_std_item_t item = {
-        .name = "",
-        .value = (char *)(d ? d : "")
-    };
+    umplg_data_std_t e_d = { .items = NULL };
+    umplg_data_std_items_t items = { .table = NULL };
+    umplg_data_std_item_t item = { .name = "", .value = (char *)(d ? d : "") };
     // init std data
     umplg_stdd_init(&e_d);
     umplg_stdd_item_add(&items, &item);
@@ -47,5 +42,3 @@ char *mink_lua_signal(const char *s, const char *d, void *md) {
     // error
     return strdup("");
 }
-
-

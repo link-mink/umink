@@ -27,14 +27,15 @@ typedef struct umplg_data_std umplg_data_std_t;
 typedef struct umplg_hkd umplg_hkd_t;
 
 // consts
-#define UMPLG_INIT_FN           "init"
-#define UMPLG_TERM_FN           "terminate"
-#define UMPLG_CMD_HNDLR         "run"
-#define UMPLG_CMD_HNDLR_LOCAL   "run_local"
-#define UMPLG_CMD_LST           "COMMANDS"
+#define UMPLG_INIT_FN         "init"
+#define UMPLG_TERM_FN         "terminate"
+#define UMPLG_CMD_HNDLR       "run"
+#define UMPLG_CMD_HNDLR_LOCAL "run_local"
+#define UMPLG_CMD_LST         "COMMANDS"
 
 // plugin CMD ids
-enum umplg_cmd_t {
+enum umplg_cmd_t
+{
     UNKNWON_COMMAND = 0,
     CMD_GET_SYSINFO = 1,
     CMD_GET_CPUSTATS = 2,
@@ -112,8 +113,7 @@ typedef int (*umplg_cmdh_t)(umplg_mngr_t *pm,
  * @param[in]   d_in      Pointer to plugin standard input data
  * @return      0 for success
  */
-typedef int (*umplg_shfn_init_t)(umplg_sh_t *shd,
-                                 umplg_data_std_t *d_in);
+typedef int (*umplg_shfn_init_t)(umplg_sh_t *shd, umplg_data_std_t *d_in);
 
 /**
  * Signal handler method (run)
@@ -130,9 +130,10 @@ typedef int (*umplg_shfn_run_t)(umplg_sh_t *shd,
                                 size_t *out_sz);
 
 // input data type for local interface
-enum umplgd_t {
+enum umplgd_t
+{
     // unknown data type (error)
-    UMPLG_DT_UNKNOWN  = 0,
+    UMPLG_DT_UNKNOWN = 0,
     // JSON-RPC (UNIX socket)
     UMPLG_DT_JSON_RPC = 1,
     // plugin-specific (custom plugin2plugin)
@@ -255,11 +256,7 @@ int umplg_unload(umplg_mngr_t *pm, umplgd_t *pd);
  *
  * @return      0 for success or error code
  */
-int umplg_run(umplg_mngr_t *pm,
-              int cmd_id,
-              int idt,
-              umplg_idata_t *data,
-              bool is_local);
+int umplg_run(umplg_mngr_t *pm, int cmd_id, int idt, umplg_idata_t *data, bool is_local);
 
 // register signal handler
 int umplg_reg_signal(umplg_mngr_t *pm, umplg_sh_t *sh);
@@ -276,6 +273,5 @@ int umplg_stdd_items_add(umplg_data_std_t *data, umplg_data_std_items_t *items);
 int umplg_stdd_item_add(umplg_data_std_items_t *items, umplg_data_std_item_t *item);
 void umplg_stdd_init(umplg_data_std_t *data);
 void umplg_stdd_free(umplg_data_std_t *data);
-
 
 #endif /* ifndef UMINK_PLUGIN */

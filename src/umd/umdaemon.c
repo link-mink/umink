@@ -20,7 +20,9 @@
 // running UMD
 umdaemon_t *UMD = NULL;
 
-umdaemon_t *umd_create(const char *id, const char *type) {
+umdaemon_t *
+umd_create(const char *id, const char *type)
+{
     if (id == 0 || type == 0) {
         return 0;
     }
@@ -48,7 +50,9 @@ umdaemon_t *umd_create(const char *id, const char *type) {
     return 0;
 }
 
-int umd_set_id(umdaemon_t *umd, const char *id) {
+int
+umd_set_id(umdaemon_t *umd, const char *id)
+{
     if (!id || !umd) {
         return 1;
     }
@@ -68,29 +72,37 @@ int umd_set_id(umdaemon_t *umd, const char *id) {
     return 0;
 }
 
-void umd_set_log_level(umdaemon_t *umd, enum umd_log_level_t ll) {
+void
+umd_set_log_level(umdaemon_t *umd, enum umd_log_level_t ll)
+{
     if (!umd) {
         return;
     }
     umd->log_level = ll;
 }
 
-void umd_signal_handler(int signum) {
+void
+umd_signal_handler(int signum)
+{
     if (!UMD) {
         return;
     }
     switch (signum) {
-        case SIGTERM:
-            UM_ATOMIC_COMP_SWAP(&UMD->is_terminated, 0, 1);
-            break;
+    case SIGTERM:
+        UM_ATOMIC_COMP_SWAP(&UMD->is_terminated, 0, 1);
+        break;
     }
 }
 
-void umd_init(umdaemon_t *umd) {
+void
+umd_init(umdaemon_t *umd)
+{
     // n/a
 }
 
-void umd_start(umdaemon_t *umd) {
+void
+umd_start(umdaemon_t *umd)
+{
     if (!umd) {
         return;
     }
@@ -99,10 +111,13 @@ void umd_start(umdaemon_t *umd) {
     // log
     syslog(LOG_INFO, "starting...");
     // call on init handler
-    if (umd->on_init) umd->on_init(umd);
+    if (umd->on_init)
+        umd->on_init(umd);
 }
 
-void umd_terminate(umdaemon_t *umd) {
+void
+umd_terminate(umdaemon_t *umd)
+{
     if (!umd) {
         return;
     }
@@ -111,26 +126,32 @@ void umd_terminate(umdaemon_t *umd) {
     // log
     syslog(LOG_INFO, "terminating...");
     // call on terminate handler
-    if (umd->on_terminate) umd->on_terminate(umd);
+    if (umd->on_terminate)
+        umd->on_terminate(umd);
     closelog();
 }
 
-
-void umd_destroy(umdaemon_t *umd) {
+void
+umd_destroy(umdaemon_t *umd)
+{
     if (umd) {
         free(umd->fqn);
         free(umd);
     }
 }
 
-void umd_loop(umdaemon_t *umd) {
-    while (!UM_ATOMIC_GET(&umd->is_terminated)) sleep(1);
+void
+umd_loop(umdaemon_t *umd)
+{
+    while (!UM_ATOMIC_GET(&umd->is_terminated))
+        sleep(1);
     // terminate
     umd_terminate(umd);
 }
 
-
-void umd_log(umdaemon_t *umd, enum umd_log_level_t level, const char* msg, ...){
+void
+umd_log(umdaemon_t *umd, enum umd_log_level_t level, const char *msg, ...)
+{
     va_list argp;
     va_start(argp, msg);
     // log level check
@@ -143,7 +164,10 @@ void umd_log(umdaemon_t *umd, enum umd_log_level_t level, const char* msg, ...){
     va_end(argp);
 }
 
-bool umd_is_terminating(){
-    if(UMD) return UM_ATOMIC_GET(&UMD->is_terminated);
+bool
+umd_is_terminating()
+{
+    if (UMD)
+        return UM_ATOMIC_GET(&UMD->is_terminated);
     return false;
 }

@@ -13,8 +13,9 @@
 #include <dlfcn.h>
 #include <stdio.h>
 
-
-umplgd_t *umplg_load(umplg_mngr_t *pm, const char *fpath){
+umplgd_t *
+umplg_load(umplg_mngr_t *pm, const char *fpath)
+{
     // open and resolve symbols now
     void *h = dlopen(fpath, RTLD_NOW | RTLD_GLOBAL);
     if (!h) {
@@ -47,22 +48,20 @@ umplgd_t *umplg_load(umplg_mngr_t *pm, const char *fpath){
     }
 
     // create descriptor
-    umplgd_t pd = {
-        .handle = h,
-        .name = strdup(fpath),
-        .type = 0,
-        .cmdh = cmdh,
-        .cmdh_l = cmdh_l,
-        .termh = term,
-        .data = NULL
-    };
+    umplgd_t pd = { .handle = h,
+                    .name = strdup(fpath),
+                    .type = 0,
+                    .cmdh = cmdh,
+                    .cmdh_l = cmdh_l,
+                    .termh = term,
+                    .data = NULL };
     // add to list
     utarray_push_back(pm->plgs, &pd);
     umplgd_t *pdp = utarray_back(pm->plgs);
 
     // attach hooks to plugin
     tmp_rh = reg_hooks;
-    while (*tmp_rh != -1){
+    while (*tmp_rh != -1) {
         // create new hook descriptor
         hook = malloc(sizeof(umplg_hkd_t));
         hook->id = *tmp_rh;
@@ -79,16 +78,15 @@ umplgd_t *umplg_load(umplg_mngr_t *pm, const char *fpath){
     return pdp;
 }
 
-
-int umplg_unload(umplg_mngr_t *pm, umplgd_t *pd) {
+int
+umplg_unload(umplg_mngr_t *pm, umplgd_t *pd)
+{
     return 0;
 }
 
-int umplg_run(umplg_mngr_t *pm,
-              int cmd_id,
-              int idt,
-              umplg_idata_t *data,
-              bool is_local) {
+int
+umplg_run(umplg_mngr_t *pm, int cmd_id, int idt, umplg_idata_t *data, bool is_local)
+{
 
     // find plugin from cmd_id (hook)
     umplg_hkd_t *hook = NULL;
@@ -102,7 +100,7 @@ int umplg_run(umplg_mngr_t *pm,
         if (hook->plgp->cmdh_l) {
             return hook->plgp->cmdh_l(pm, hook->plgp, cmd_id, data);
 
-        // local handler not found
+            // local handler not found
         } else {
             return -1;
         }
@@ -112,7 +110,9 @@ int umplg_run(umplg_mngr_t *pm,
     return hook->plgp->cmdh(pm, hook->plgp, cmd_id, data);
 }
 
-int umplg_reg_signal(umplg_mngr_t *pm, umplg_sh_t *sh) {
+int
+umplg_reg_signal(umplg_mngr_t *pm, umplg_sh_t *sh)
+{
     // single handler descriptor
     umplg_sh_t *tmp_shd = NULL;
     // check if signal was already registered
@@ -131,28 +131,32 @@ int umplg_reg_signal(umplg_mngr_t *pm, umplg_sh_t *sh) {
     return 0;
 }
 
-int umplg_proc_signal(umplg_mngr_t *pm,
-                      const char *s,
-                      umplg_data_std_t *d_in,
-                      char **d_out,
-                      size_t *out_sz) {
+int
+umplg_proc_signal(umplg_mngr_t *pm,
+                  const char *s,
+                  umplg_data_std_t *d_in,
+                  char **d_out,
+                  size_t *out_sz)
+{
 
     // single handler descriptor
     umplg_sh_t *tmp_shd = NULL;
     // find signal
     HASH_FIND_STR(pm->signals, s, tmp_shd);
-    if (tmp_shd == NULL){
+    if (tmp_shd == NULL) {
         return 1;
     }
     // run
     return tmp_shd->run(tmp_shd, d_in, d_out, out_sz);
 }
 
-umplg_mngr_t *umplg_new_mngr() {
+umplg_mngr_t *
+umplg_new_mngr()
+{
     // mem alloc
     umplg_mngr_t *pm = malloc(sizeof(umplg_mngr_t));
     // utarray icd
-    UT_icd pd_icd = {sizeof(umplgd_t), NULL, NULL, NULL};
+    UT_icd pd_icd = { sizeof(umplgd_t), NULL, NULL, NULL };
     // create plugins array
     utarray_new(pm->plgs, &pd_icd);
     // init hooks hashmap
@@ -162,11 +166,12 @@ umplg_mngr_t *umplg_new_mngr() {
     return pm;
 }
 
-void umplg_free_mngr(umplg_mngr_t *pm) {
+void
+umplg_free_mngr(umplg_mngr_t *pm)
+{
     umplgd_t *pd = NULL;
     // free plugins
-    for (pd = (umplgd_t *)utarray_front(pm->plgs);
-         pd != NULL;
+    for (pd = (umplgd_t *)utarray_front(pm->plgs); pd != NULL;
          pd = (umplgd_t *)utarray_next(pm->plgs, pd)) {
 
         // terminate
@@ -174,7 +179,7 @@ void umplg_free_mngr(umplg_mngr_t *pm) {
         // free mem
         dlclose(pd->handle);
         free(pd->name);
-        //free(pd);
+        // free(pd);
     }
     // release plugin manager memory
     utarray_free(pm->plgs);
@@ -182,7 +187,9 @@ void umplg_free_mngr(umplg_mngr_t *pm) {
     free(pm);
 }
 
-static void std_items_copy(void *_dst, const void *_src) {
+static void
+std_items_copy(void *_dst, const void *_src)
+{
     // cast to hashmaps
     umplg_data_std_items_t *dst = (umplg_data_std_items_t *)_dst;
     umplg_data_std_items_t *src = (umplg_data_std_items_t *)_src;
@@ -191,7 +198,8 @@ static void std_items_copy(void *_dst, const void *_src) {
     // init hashmap to NULL
     dst->table = NULL;
     // deep copy hash items
-    HASH_ITER(hh, src->table, s, tmp) {
+    HASH_ITER(hh, src->table, s, tmp)
+    {
         n = malloc(sizeof(umplg_data_std_item_t));
         n->name = strdup(s->name);
         n->value = strdup(s->value);
@@ -199,13 +207,16 @@ static void std_items_copy(void *_dst, const void *_src) {
     }
 }
 
-static void std_items_dtor(void *_elt) {
+static void
+std_items_dtor(void *_elt)
+{
     // cast to hashmaps
     umplg_data_std_items_t *elt = (umplg_data_std_items_t *)_elt;
     // temp pointers
     umplg_data_std_item_t *s, *tmp;
     // free and remove hashmap elements
-    HASH_ITER(hh, elt->table, s, tmp) {
+    HASH_ITER(hh, elt->table, s, tmp)
+    {
         HASH_DEL(elt->table, s);
         free(s->name);
         free(s->value);
@@ -213,7 +224,9 @@ static void std_items_dtor(void *_elt) {
     }
 }
 
-void umplg_stdd_init(umplg_data_std_t *data) {
+void
+umplg_stdd_init(umplg_data_std_t *data)
+{
     // sanity check
     if (data == NULL) {
         return;
@@ -221,17 +234,19 @@ void umplg_stdd_init(umplg_data_std_t *data) {
     // create new std data
     if (data->items == NULL) {
         // icd
-        UT_icd icd = {sizeof(umplg_data_std_items_t),
-                      NULL,
-                      &std_items_copy,
-                      &std_items_dtor};
+        UT_icd icd = { sizeof(umplg_data_std_items_t),
+                       NULL,
+                       &std_items_copy,
+                       &std_items_dtor };
 
         // new items array
         utarray_new(data->items, &icd);
     }
 }
 
-void umplg_stdd_free(umplg_data_std_t *data) {
+void
+umplg_stdd_free(umplg_data_std_t *data)
+{
     // sanity check
     if (data == NULL || data->items == NULL) {
         return;
@@ -239,7 +254,9 @@ void umplg_stdd_free(umplg_data_std_t *data) {
     utarray_free(data->items);
 }
 
-int umplg_stdd_items_add(umplg_data_std_t *data, umplg_data_std_items_t *items) {
+int
+umplg_stdd_items_add(umplg_data_std_t *data, umplg_data_std_items_t *items)
+{
     // sanity check
     if (data == NULL || items == NULL) {
         return 1;
@@ -255,7 +272,9 @@ int umplg_stdd_items_add(umplg_data_std_t *data, umplg_data_std_items_t *items) 
     return 0;
 }
 
-int umplg_stdd_item_add(umplg_data_std_items_t *items, umplg_data_std_item_t *item) {
+int
+umplg_stdd_item_add(umplg_data_std_items_t *items, umplg_data_std_item_t *item)
+{
     // sanity check
     if (items == NULL || item == NULL) {
         return 1;

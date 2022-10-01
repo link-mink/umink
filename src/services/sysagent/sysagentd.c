@@ -36,24 +36,26 @@ typedef struct {
 } sysagentdd_t;
 
 // help
-static void print_help() {
+static void
+print_help()
+{
     printf("%s - %s\n\nOptions:\n", UMD_TYPE, UMD_DESCRIPTION);
     printf(" %s\n %s\n %s\n %s\n\n",
            "-?    help",
            "-i    unique daemon id",
            "-p    plugin path",
            "-D    start in debug mode");
-    printf("%s\n %s\n",
-           "Plugins:",
-           "--plugins-cfg    Plugins configuration file");
+    printf("%s\n %s\n", "Plugins:", "--plugins-cfg    Plugins configuration file");
 }
 
 // process args
-static void proc_args(umdaemon_t *umd, int argc, char **argv) {
+static void
+proc_args(umdaemon_t *umd, int argc, char **argv)
+{
     int opt;
     int option_index = 0;
-    struct option long_options[] = {{"plugins-cfg", required_argument, 0, 0},
-                                    {0, 0, 0, 0}};
+    struct option long_options[] = { { "plugins-cfg", required_argument, 0, 0 },
+                                     { 0, 0, 0, 0 } };
 
     if (argc < 3) {
         print_help();
@@ -63,69 +65,74 @@ static void proc_args(umdaemon_t *umd, int argc, char **argv) {
     sysagentdd_t *dd = umd->data;
 
     // get args
-    while ((opt = getopt_long(argc, argv, "?i:p:D", long_options,
-                              &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "?i:p:D", long_options, &option_index)) != -1) {
         switch (opt) {
-            // long options
+        // long options
+        case 0:
+            if (long_options[option_index].flag != 0)
+                break;
+            switch (option_index) {
+            // plugins-cfg
             case 0:
-                if (long_options[option_index].flag != 0)
-                    break;
-                switch (option_index) {
-                    // plugins-cfg
-                    case 0:
-                        dd->plg_cfg_f = optarg;
-                        break;
-                    default:
-                        break;
-                }
-
+                dd->plg_cfg_f = optarg;
                 break;
-
-            // daemon id
-            case 'i':
-                if (umd_set_id(umd, optarg) != 0) {
-                    printf("%s\n", "ERROR: Maximum size of daemon id string is "
-                                   "15 characters!");
-                    exit(EXIT_FAILURE);
-                }
-                break;
-
-            // plugin path
-            case 'p':
-                dd->plg_pth = optarg;
-                break;
-
-            // debug mode
-            case 'D':
-                umd_set_log_level(umd, UMD_LLT_DEBUG);
-                break;
-
             default:
                 break;
+            }
+
+            break;
+
+        // daemon id
+        case 'i':
+            if (umd_set_id(umd, optarg) != 0) {
+                printf("%s\n",
+                       "ERROR: Maximum size of daemon id string is "
+                       "15 characters!");
+                exit(EXIT_FAILURE);
+            }
+            break;
+
+        // plugin path
+        case 'p':
+            dd->plg_pth = optarg;
+            break;
+
+        // debug mode
+        case 'D':
+            umd_set_log_level(umd, UMD_LLT_DEBUG);
+            break;
+
+        default:
+            break;
         }
     }
 }
 
-
-static void plgn_cpy(void *dst, const void *src){
+static void
+plgn_cpy(void *dst, const void *src)
+{
     umplgd_t *plgn_dst = (umplgd_t *)dst;
     umplgd_t *plgn_src = (umplgd_t *)src;
 
     plgn_dst->name = plgn_src->name ? strdup(plgn_src->name) : NULL;
-
 }
 
-static void plgn_dtor(void *elt){
+static void
+plgn_dtor(void *elt)
+{
     umplgd_t *plgn = (umplgd_t *)elt;
-    if (plgn->name) free(plgn->name);
+    if (plgn->name)
+        free(plgn->name);
 }
 
-static void plgn_init(void *elt) {
+static void
+plgn_init(void *elt)
+{
 }
 
-static char **fs_readdir(const char *dir,
-                         size_t *size,
-                         fs_dir_filter_t filter) {
+static char **
+fs_readdir(const char *dir, size_t *size, fs_dir_filter_t filter)
+{
     // null check
     if (!(dir && size))
         return NULL;
@@ -149,7 +156,9 @@ static char **fs_readdir(const char *dir,
     return res;
 }
 
-static void init_plugins(umplg_mngr_t *pm, const char *pdir) {
+static void
+init_plugins(umplg_mngr_t *pm, const char *pdir)
+{
     int pdl;
     // plugin dir missing
     if (!pdir) {
@@ -160,11 +169,12 @@ static void init_plugins(umplg_mngr_t *pm, const char *pdir) {
 
     // read plugin dir
     size_t rl;
-    char** lst = fs_readdir(pdir, &rl, NULL);
-    if (lst == NULL) return;
+    char **lst = fs_readdir(pdir, &rl, NULL);
+    if (lst == NULL)
+        return;
 
     // copy dir path str
-    char* plg_fname = strdup(pdir);
+    char *plg_fname = strdup(pdir);
     int l;
     // loop results
     for (int i = 0; i < rl; i++) {
@@ -180,8 +190,7 @@ static void init_plugins(umplg_mngr_t *pm, const char *pdir) {
                 printf("Loading plugin [%s]...\n", lst[i]);
 
             else
-                printf("Cannot load plugin [%s], mandatory methods not found!\n",
-                       lst[i]);
+                printf("Cannot load plugin [%s], mandatory methods not found!\n", lst[i]);
         }
         // free item
         free(lst[i]);
@@ -191,13 +200,15 @@ static void init_plugins(umplg_mngr_t *pm, const char *pdir) {
     free(plg_fname);
 }
 
-static void init(sysagentdd_t *dd) {
+static void
+init(sysagentdd_t *dd)
+{
     // load plugins configuration
     FILE *f = fopen(dd->plg_cfg_f, "r");
     if (f == NULL) {
         return;
     }
-    if(fseek(f, 0, SEEK_END) < 0){
+    if (fseek(f, 0, SEEK_END) < 0) {
         fclose(f);
         return;
     }
@@ -214,8 +225,7 @@ static void init(sysagentdd_t *dd) {
     // process plugins configurataion
     dd->cfg = json_tokener_parse(b);
     if (dd->cfg == NULL) {
-        printf("%s\n",
-               "ERROR: Invalid plugins configuration file");
+        printf("%s\n", "ERROR: Invalid plugins configuration file");
         exit(EXIT_FAILURE);
     }
     // set plugin manager cfg pointer
@@ -227,16 +237,16 @@ static void init(sysagentdd_t *dd) {
 }
 
 // main
-int main(int argc, char **argv) {
+int
+main(int argc, char **argv)
+{
     // create umink daemon
     umdaemon_t *umd = umd_create("", UMD_TYPE);
     // craeate deamon descriptor
-    sysagentdd_t dd = {
-        .pcfg = NULL,
-        .plg_cfg_f = NULL,
-        .plg_pth = NULL,
-        .pm = umplg_new_mngr()
-    };
+    sysagentdd_t dd = { .pcfg = NULL,
+                        .plg_cfg_f = NULL,
+                        .plg_pth = NULL,
+                        .pm = umplg_new_mngr() };
     umd->data = &dd;
     dd.pm->cfg = dd.cfg;
     // process command line arguments

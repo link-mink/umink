@@ -30,11 +30,9 @@ static const char *PLG_ID = "plg_sysagent_mqtt.so";
 /**********************************************/
 /* list of command implemented by this plugin */
 /**********************************************/
-int COMMANDS[] = {
-    CMD_MQTT_PUBLISH,
-    // end of list marker
-    -1
-};
+int COMMANDS[] = { CMD_MQTT_PUBLISH,
+                   // end of list marker
+                   -1 };
 
 static const char *SIG_MQTT_RX = "mqtt:RX";
 
@@ -66,32 +64,25 @@ struct mqtt_conn_mngr {
 static int mqtt_conn_sub(struct mqtt_conn_d *conn, const char *t);
 static int mqtt_conn_connect(struct mqtt_conn_d *conn, struct json_object *j_conn);
 
-
-struct mqtt_conn_d *mqtt_conn_new(umplg_mngr_t *pm) {
+struct mqtt_conn_d *
+mqtt_conn_new(umplg_mngr_t *pm)
+{
     struct mqtt_conn_d *c = malloc(sizeof(struct mqtt_conn_d));
     c->pm = pm;
     utarray_new(c->topics, &ut_str_icd);
     return c;
 }
 
-static int mqtt_on_rx(void *ctx, char *t, int t_sz, MQTTAsync_message *msg) {
+static int
+mqtt_on_rx(void *ctx, char *t, int t_sz, MQTTAsync_message *msg)
+{
     // context
     struct mqtt_conn_d *conn = ctx;
     // data
-    umplg_data_std_t e_d = {
-        .items = NULL
-    };
-    umplg_data_std_items_t items = {
-        .table = NULL
-    };
-    umplg_data_std_item_t item_topic = {
-        .name = "mqtt_topic",
-        .value = t
-    };
-    umplg_data_std_item_t item_pld = {
-        .name = "mqtt_payload",
-        .value = t
-    };
+    umplg_data_std_t e_d = { .items = NULL };
+    umplg_data_std_items_t items = { .table = NULL };
+    umplg_data_std_item_t item_topic = { .name = "mqtt_topic", .value = t };
+    umplg_data_std_item_t item_pld = { .name = "mqtt_payload", .value = t };
     // create signal input data
     umplg_stdd_init(&e_d);
     umplg_stdd_item_add(&items, &item_topic);
@@ -110,7 +101,9 @@ static int mqtt_on_rx(void *ctx, char *t, int t_sz, MQTTAsync_message *msg) {
     return 1;
 }
 
-static void mqtt_on_connect(void *context, char *cause) {
+static void
+mqtt_on_connect(void *context, char *cause)
+{
     // context
     struct mqtt_conn_d *conn = context;
     // get topics
@@ -120,7 +113,9 @@ static void mqtt_on_connect(void *context, char *cause) {
     }
 }
 
-static int mqtt_conn_connect(struct mqtt_conn_d *conn, struct json_object *j_conn) {
+static int
+mqtt_conn_connect(struct mqtt_conn_d *conn, struct json_object *j_conn)
+{
     // address and client id
     struct json_object *j_addr = json_object_object_get(j_conn, "address");
     struct json_object *j_clid = json_object_object_get(j_conn, "client_id");
@@ -141,11 +136,8 @@ static int mqtt_conn_connect(struct mqtt_conn_d *conn, struct json_object *j_con
     }
 
     // set callbacks (RX)
-    if (MQTTAsync_setCallbacks(conn->client,
-                               conn,
-                               NULL,
-                               mqtt_on_rx,
-                               NULL) != MQTTASYNC_SUCCESS) {
+    if (MQTTAsync_setCallbacks(conn->client, conn, NULL, mqtt_on_rx, NULL) !=
+        MQTTASYNC_SUCCESS) {
         return 2;
     }
     // connection options
@@ -170,11 +162,13 @@ static int mqtt_conn_connect(struct mqtt_conn_d *conn, struct json_object *j_con
     return 0;
 }
 
-static int mqtt_conn_pub(struct mqtt_conn_d *conn,
-                         const char *d,
-                         size_t d_sz,
-                         const char *t,
-                         bool retain) {
+static int
+mqtt_conn_pub(struct mqtt_conn_d *conn,
+              const char *d,
+              size_t d_sz,
+              const char *t,
+              bool retain)
+{
     // setup mqtt payload
     MQTTAsync_message pubmsg = MQTTAsync_message_initializer;
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
@@ -184,10 +178,7 @@ static int mqtt_conn_pub(struct mqtt_conn_d *conn,
     pubmsg.qos = 1;
     pubmsg.retained = retain;
     // send
-    if (MQTTAsync_sendMessage(conn->client,
-                              t,
-                              &pubmsg,
-                              &opts) != MQTTASYNC_SUCCESS) {
+    if (MQTTAsync_sendMessage(conn->client, t, &pubmsg, &opts) != MQTTASYNC_SUCCESS) {
         // error
         return 1;
     }
@@ -195,12 +186,11 @@ static int mqtt_conn_pub(struct mqtt_conn_d *conn,
     return 0;
 }
 
-static int mqtt_conn_sub(struct mqtt_conn_d *conn, const char *t) {
+static int
+mqtt_conn_sub(struct mqtt_conn_d *conn, const char *t)
+{
     MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
-    if (MQTTAsync_subscribe(conn->client,
-                            t,
-                            1,
-                            &opts) != MQTTASYNC_SUCCESS) {
+    if (MQTTAsync_subscribe(conn->client, t, 1, &opts) != MQTTASYNC_SUCCESS) {
         // error
         return 1;
     }
@@ -208,19 +198,23 @@ static int mqtt_conn_sub(struct mqtt_conn_d *conn, const char *t) {
     return 0;
 }
 
-static void mqtt_conn_add_topic(struct mqtt_conn_d *conn, const char *t) {
+static void
+mqtt_conn_add_topic(struct mqtt_conn_d *conn, const char *t)
+{
     utarray_push_back(conn->topics, t);
 }
 
-static struct mqtt_conn_mngr *mqtt_mngr_new() {
+static struct mqtt_conn_mngr *
+mqtt_mngr_new()
+{
     struct mqtt_conn_mngr *m = malloc(sizeof(struct mqtt_conn_mngr));
     m->conns = NULL;
     return m;
 }
 
-static struct mqtt_conn_d *mqtt_mngr_add_conn(struct mqtt_conn_mngr *m,
-                                              umplg_mngr_t *pm,
-                                              struct json_object *j_conn) {
+static struct mqtt_conn_d *
+mqtt_mngr_add_conn(struct mqtt_conn_mngr *m, umplg_mngr_t *pm, struct json_object *j_conn)
+{
 
     // address
     struct json_object *j_addr = json_object_object_get(j_conn, "address");
@@ -244,7 +238,9 @@ static struct mqtt_conn_d *mqtt_mngr_add_conn(struct mqtt_conn_mngr *m,
     return c;
 }
 
-static void mqtt_mngr_del_conn(struct mqtt_conn_mngr *m, const char *name) {
+static void
+mqtt_mngr_del_conn(struct mqtt_conn_mngr *m, const char *name)
+{
     struct mqtt_conn_d *tmp_conn = NULL;
     HASH_FIND_STR(m->conns, name, tmp_conn);
     if (tmp_conn != NULL) {
@@ -253,14 +249,17 @@ static void mqtt_mngr_del_conn(struct mqtt_conn_mngr *m, const char *name) {
     }
 }
 
-static struct mqtt_conn_d *mqtt_mngr_get_conn(struct mqtt_conn_mngr *m,
-                                              const char *name) {
+static struct mqtt_conn_d *
+mqtt_mngr_get_conn(struct mqtt_conn_mngr *m, const char *name)
+{
     struct mqtt_conn_d *tmp_conn = NULL;
     HASH_FIND_STR(m->conns, name, tmp_conn);
     return tmp_conn;
 }
 
-static int process_cfg(umplg_mngr_t *pm, struct mqtt_conn_mngr *mngr) {
+static int
+process_cfg(umplg_mngr_t *pm, struct mqtt_conn_mngr *mngr)
+{
     // get config
     if (pm->cfg == NULL) {
         return 1;
@@ -268,12 +267,13 @@ static int process_cfg(umplg_mngr_t *pm, struct mqtt_conn_mngr *mngr) {
     // cast (100% json)
     struct json_object *jcfg = pm->cfg;
     // find plugin id
-    if(!json_object_is_type(jcfg, json_type_object)){
+    if (!json_object_is_type(jcfg, json_type_object)) {
         return 2;
     }
     // loop keys
     struct json_object *plg_cfg = NULL;
-    json_object_object_foreach(jcfg, k, v) {
+    json_object_object_foreach(jcfg, k, v)
+    {
         if (strcmp(k, PLG_ID) == 0) {
             plg_cfg = v;
             break;
@@ -293,8 +293,7 @@ static int process_cfg(umplg_mngr_t *pm, struct mqtt_conn_mngr *mngr) {
             struct json_object *j_conn = json_object_array_get_idx(jobj, i);
             // check env object type
             if (!json_object_is_type(v, json_type_object)) {
-                umd_log(UMD, UMD_LLT_ERROR,
-                        "plg_mqtt: [invalid MQTT connection object]");
+                umd_log(UMD, UMD_LLT_ERROR, "plg_mqtt: [invalid MQTT connection object]");
                 return 4;
             }
             // get connection values
@@ -305,7 +304,8 @@ static int process_cfg(umplg_mngr_t *pm, struct mqtt_conn_mngr *mngr) {
             struct json_object *j_pwd = json_object_object_get(v, "password");
             // all values are mandatory
             if (!(j_n && j_addr && j_clid && j_usr && j_pwd)) {
-                umd_log(UMD, UMD_LLT_ERROR,
+                umd_log(UMD,
+                        UMD_LLT_ERROR,
                         "plg_mqtt: [malformed MQTT connection (missing values)]");
                 return 5;
             }
@@ -316,7 +316,8 @@ static int process_cfg(umplg_mngr_t *pm, struct mqtt_conn_mngr *mngr) {
                   json_object_is_type(j_usr, json_type_string) &&
                   json_object_is_type(j_pwd, json_type_string))) {
 
-                umd_log(UMD, UMD_LLT_ERROR,
+                umd_log(UMD,
+                        UMD_LLT_ERROR,
                         "plg_mqtt: [malformed MQTT connection (wrong type)]");
                 return 6;
             }
@@ -339,9 +340,7 @@ static int process_cfg(umplg_mngr_t *pm, struct mqtt_conn_mngr *mngr) {
                     mqtt_conn_add_topic(conn, json_object_get_string(v));
                 }
             }
-            umd_log(UMD, UMD_LLT_INFO,
-                    "plg_mqtt: [adding connection [%s]",
-                    conn->name);
+            umd_log(UMD, UMD_LLT_INFO, "plg_mqtt: [adding connection [%s]", conn->name);
             mqtt_conn_connect(conn, j_conn);
         }
     }
@@ -349,16 +348,16 @@ static int process_cfg(umplg_mngr_t *pm, struct mqtt_conn_mngr *mngr) {
     return 0;
 }
 
-
 /****************/
 /* init handler */
 /****************/
-int init(umplg_mngr_t *pm, umplgd_t *pd) {
+int
+init(umplg_mngr_t *pm, umplgd_t *pd)
+{
     // mqtt conn manager
     struct mqtt_conn_mngr *mngr = mqtt_mngr_new();
-    if (process_cfg(pm, mngr))  {
-        umd_log(UMD, UMD_LLT_ERROR,
-                "plg_mqtt: [cannot process plugin configuration]");
+    if (process_cfg(pm, mngr)) {
+        umd_log(UMD, UMD_LLT_ERROR, "plg_mqtt: [cannot process plugin configuration]");
     }
     return 0;
 }
@@ -366,7 +365,9 @@ int init(umplg_mngr_t *pm, umplgd_t *pd) {
 /*********************/
 /* terminate handler */
 /*********************/
-int terminate(umplg_mngr_t *pm, umplgd_t *pd){
+int
+terminate(umplg_mngr_t *pm, umplgd_t *pd)
+{
     // TODO
     return 0;
 }
@@ -374,7 +375,9 @@ int terminate(umplg_mngr_t *pm, umplgd_t *pd){
 /*************************/
 /* local command handler */
 /*************************/
-int run_local(umplg_mngr_t *pm, umplgd_t *pd, int cmd_id, umplg_idata_t *data) {
+int
+run_local(umplg_mngr_t *pm, umplgd_t *pd, int cmd_id, umplg_idata_t *data)
+{
     // TODO
     return 0;
 }
@@ -382,9 +385,9 @@ int run_local(umplg_mngr_t *pm, umplgd_t *pd, int cmd_id, umplg_idata_t *data) {
 /*******************/
 /* command handler */
 /*******************/
-int run(umplg_mngr_t *pm, umplgd_t *pd, int cmd_id, umplg_idata_t *data) {
+int
+run(umplg_mngr_t *pm, umplgd_t *pd, int cmd_id, umplg_idata_t *data)
+{
     // not used
     return 0;
 }
-
-
