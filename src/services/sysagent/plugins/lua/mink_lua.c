@@ -122,3 +122,62 @@ mink_lua_cmd_data_get_column(const int r, const int c, void *p)
     return cdata;
 }
 
+/*******************/
+/* Free plugin res */
+/*******************/
+void
+mink_lua_free_res(void *p)
+{
+    umplg_data_std_t *d = p;
+    utarray_clear(d->items);
+    free(d);
+}
+
+/**************************/
+/* Create new plugin data */
+/**************************/
+void *
+mink_lua_new_cmd_data()
+{
+    umplg_data_std_t *d = malloc(sizeof(umplg_data_std_t));
+    d->items = NULL;
+    umplg_stdd_init(d);
+    return d;
+}
+
+/************/
+/* cmd_call */
+/************/
+int
+mink_lua_cmd_call(void *md, int argc, const char **args, void *out)
+{
+    // plugin manager
+    umplg_mngr_t *pm = md;
+    // argument count check
+    if (argc < 1) {
+        return -1;
+    }
+    // output check
+    if (!out) {
+        return -2;
+    }
+    // cmd data
+    umplg_data_std_t *d = out;
+    // get command id
+    int cmd_id = umplg_get_cmd_id(pm, args[0]);
+    // cmd arguments
+    for (int i = 1; i < argc; i++) {
+        // column map
+        umplg_data_std_items_t cmap = { .table = NULL };
+        // insert columns
+        umplg_data_std_item_t item = { .name = "", .value = (char *)args[i] };
+        umplg_stdd_item_add(&cmap, &item);
+        // add row
+        umplg_stdd_items_add(d, &cmap);
+    }
+    // plugin input data
+    umplg_idata_t idata = { UMPLG_DT_STANDARD, d };
+    // run plugin method
+    return umplg_run(pm, cmd_id, idata.type, &idata, true);
+}
+

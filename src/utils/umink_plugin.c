@@ -154,6 +154,15 @@ umplg_proc_signal(umplg_mngr_t *pm,
     return tmp_shd->run(tmp_shd, d_in, d_out, out_sz);
 }
 
+static void
+add_cmd_id_map_item(int cmd_id, const char *name, umplg_mngr_t *pm)
+{
+    umplg_cmd_map_t *cmd = malloc(sizeof(umplg_cmd_map_t));
+    cmd->id = cmd_id;
+    cmd->name = name;
+    HASH_ADD_KEYPTR(hh, pm->cmd_map, cmd->name, strlen(cmd->name), cmd);
+}
+
 umplg_mngr_t *
 umplg_new_mngr()
 {
@@ -167,6 +176,13 @@ umplg_new_mngr()
     pm->hooks = NULL;
     // init signals hashmap
     pm->signals = NULL;
+    // init cmd str/id map
+    pm->cmd_map = NULL;
+    // add mappings
+    add_cmd_id_map_item(UNKNWON_COMMAND, "UNKNWON_COMMAND", pm);
+    add_cmd_id_map_item(CMD_MQTT_PUBLISH, "CMD_MQTT_PUBLISH", pm);
+    add_cmd_id_map_item(CMD_LUA_CALL, "CMD_LUA_CALL", pm);
+    // pm pointer
     return pm;
 }
 
@@ -288,4 +304,17 @@ umplg_stdd_item_add(umplg_data_std_items_t *items, umplg_data_std_item_t *item)
 
     // success
     return 0;
+}
+
+int
+umplg_get_cmd_id(umplg_mngr_t *pm, const char *cmd_str)
+{
+    umplg_cmd_map_t *cmd = NULL;
+    HASH_FIND_STR(pm->cmd_map, cmd_str, cmd);
+    // id found
+    if (cmd != NULL) {
+        return cmd->id;
+    }
+    // not found
+    return -1;
 }

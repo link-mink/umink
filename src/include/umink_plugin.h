@@ -25,6 +25,7 @@ typedef struct umplg_data_std_items umplg_data_std_items_t;
 typedef struct umplg_data_std_item umplg_data_std_item_t;
 typedef struct umplg_data_std umplg_data_std_t;
 typedef struct umplg_hkd umplg_hkd_t;
+typedef struct umplg_cmd_map umplg_cmd_map_t;
 
 // consts
 #define UMPLG_INIT_FN         "init"
@@ -129,6 +130,13 @@ typedef int (*umplg_shfn_run_t)(umplg_sh_t *shd,
                                 char **d_out,
                                 size_t *out_sz);
 
+// string -> CMD id map
+struct umplg_cmd_map {
+    int id;
+    const char *name;
+    UT_hash_handle hh;
+};
+
 // input data type for local interface
 enum umplgd_t
 {
@@ -219,6 +227,8 @@ struct umplg_mngr {
     umplg_hkd_t *hooks;
     // hasmap of registered signals
     umplg_sh_t *signals;
+    // cmd str -> cmd id
+    umplg_cmd_map_t *cmd_map;
     // configuration data
     void *cfg;
 };
@@ -273,5 +283,8 @@ int umplg_stdd_items_add(umplg_data_std_t *data, umplg_data_std_items_t *items);
 int umplg_stdd_item_add(umplg_data_std_items_t *items, umplg_data_std_item_t *item);
 void umplg_stdd_init(umplg_data_std_t *data);
 void umplg_stdd_free(umplg_data_std_t *data);
+
+// cmd id
+int umplg_get_cmd_id(umplg_mngr_t *pm, const char *cmd_str);
 
 #endif /* ifndef UMINK_PLUGIN */
