@@ -45,8 +45,14 @@ mink_lua_signal(const char *s, const char *d, void *md)
     size_t sz = 0;
     // process signal
     if (umplg_proc_signal(pm, s, &e_d, &b, &sz) == 0) {
+        // cleanup
+        HASH_CLEAR(hh, items.table);
+        umplg_stdd_free(&e_d);
         return b;
     }
+    // cleanup
+    HASH_CLEAR(hh, items.table);
+    umplg_stdd_free(&e_d);
     // error
     return strdup("");
 }
@@ -129,7 +135,7 @@ void
 mink_lua_free_res(void *p)
 {
     umplg_data_std_t *d = p;
-    utarray_clear(d->items);
+    umplg_stdd_free(d);
     free(d);
 }
 
@@ -174,10 +180,15 @@ mink_lua_cmd_call(void *md, int argc, const char **args, void *out)
         umplg_stdd_item_add(&cmap, &item);
         // add row
         umplg_stdd_items_add(d, &cmap);
+        // cleanup
+        HASH_CLEAR(hh, cmap.table);
     }
     // plugin input data
     umplg_idata_t idata = { UMPLG_DT_STANDARD, d };
     // run plugin method
-    return umplg_run(pm, cmd_id, idata.type, &idata, true);
+    int res = umplg_run(pm, cmd_id, idata.type, &idata, true);
+    // result
+    return res;
+
 }
 

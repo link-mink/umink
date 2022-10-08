@@ -77,6 +77,9 @@ struct lua_env_mngr {
     pthread_mutex_t mtx;
 };
 
+// globals
+struct lua_env_mngr *lenv_mngr = NULL;
+
 struct lua_env_mngr *
 lenvm_new()
 {
@@ -84,6 +87,12 @@ lenvm_new()
     lem->envs = NULL;
     pthread_mutex_init(&lem->mtx, NULL);
     return lem;
+}
+
+void
+lenvm_free(struct lua_env_mngr *m)
+{
+    free(m);
 }
 
 struct lua_env_d *
@@ -96,6 +105,27 @@ lenvm_get_envd(struct lua_env_mngr *lem, const char *n)
     HASH_FIND_STR(lem->envs, n, env);
     // unlock
     pthread_mutex_unlock(&lem->mtx);
+    // return env
+    return env;
+}
+
+struct lua_env_d *
+lenvm_del_envd(struct lua_env_mngr *lem, const char *n, bool th_safe)
+{
+    // lock
+    if (th_safe) {
+        pthread_mutex_lock(&lem->mtx);
+    }
+    // find env
+    struct lua_env_d *env = NULL;
+    HASH_FIND_STR(lem->envs, n, env);
+    if (env != NULL) {
+        HASH_DEL(lem->envs, env);
+    }
+    // unlock
+    if (th_safe) {
+        pthread_mutex_unlock(&lem->mtx);
+    }
     // return env
     return env;
 }
@@ -136,9 +166,11 @@ lenvm_process_envs(struct lua_env_mngr *lem, void (*f)(struct lua_env_d *env))
 {
     // lock
     pthread_mutex_lock(&lem->mtx);
+    struct lua_env_d *c_env = NULL;
     struct lua_env_d *tmp_env = NULL;
-    for (tmp_env = lem->envs; tmp_env != NULL; tmp_env = tmp_env->hh.next) {
-        f(tmp_env);
+    HASH_ITER(hh, lem->envs, c_env, tmp_env)
+    {
+        f(c_env);
     }
     // unlock
     pthread_mutex_unlock(&lem->mtx);
@@ -176,7 +208,8 @@ th_lua_env(void *arg)
         return NULL;
     }
 
-    char *lua_s = calloc(1, fsz + 1);
+    char lua_s[fsz + 1];
+    memset(lua_s, 0, fsz + 1);
     rewind(f);
     fread(lua_s, fsz, 1, f);
     fclose(f);
@@ -253,7 +286,8 @@ lua_sig_hndlr_init(umplg_sh_t *shd, umplg_data_std_t *d_in)
         return 4;
     }
 
-    char *lua_s = calloc(1, fsz + 1);
+    char lua_s[fsz + 1];
+    memset(lua_s, 0, fsz + 1);
     rewind(f);
     fread(lua_s, fsz, 1, f);
     fclose(f);
@@ -495,6 +529,19 @@ process_lua_envs(struct lua_env_d *env)
     }
 }
 
+static void
+shutdown_lua_envs(struct lua_env_d *env)
+{
+    if (strcmp(env->name, "CMD_CALL") != 0) {
+        pthread_join(env->th, NULL);
+    }
+    // cleanup
+    lenvm_del_envd(lenv_mngr, env->name, false);
+    free(env->name);
+    free(env->path);
+    free(env);
+}
+
 /****************/
 /* init handler */
 /****************/
@@ -502,12 +549,12 @@ int
 init(umplg_mngr_t *pm, umplgd_t *pd)
 {
     // lue env manager
-    struct lua_env_mngr *lem = lenvm_new();
-    if (process_cfg(pm, lem)) {
+    lenv_mngr = lenvm_new();
+    if (process_cfg(pm, lenv_mngr)) {
         umd_log(UMD, UMD_LLT_ERROR, "plg_lua: [cannot process plugin configuration]");
     }
     // create environments
-    lenvm_process_envs(lem, &process_lua_envs);
+    lenvm_process_envs(lenv_mngr, &process_lua_envs);
 
     return 0;
 }
@@ -518,7 +565,10 @@ init(umplg_mngr_t *pm, umplgd_t *pd)
 int
 terminate(umplg_mngr_t *pm, umplgd_t *pd)
 {
-    // TODO
+    // stop envs
+    lenvm_process_envs(lenv_mngr, &shutdown_lua_envs);
+    // free env manager
+    lenvm_free(lenv_mngr);
     return 0;
 }
 
@@ -528,7 +578,7 @@ terminate(umplg_mngr_t *pm, umplgd_t *pd)
 int
 run_local(umplg_mngr_t *pm, umplgd_t *pd, int cmd_id, umplg_idata_t *data)
 {
-    // TODO
+    // unused
     return 0;
 }
 
@@ -538,6 +588,6 @@ run_local(umplg_mngr_t *pm, umplgd_t *pd, int cmd_id, umplg_idata_t *data)
 int
 run(umplg_mngr_t *pm, umplgd_t *pd, int cmd_id, umplg_idata_t *data)
 {
-    // TODO
+    // unused
     return 0;
 }

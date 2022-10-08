@@ -201,9 +201,39 @@ umplg_free_mngr(umplg_mngr_t *pm)
         free(pd->name);
         // free(pd);
     }
-    // release plugin manager memory
+    // free signals
+    umplg_sh_t *c_sh = NULL;
+    umplg_sh_t *tmp_sh = NULL;
+    HASH_ITER(hh, pm->signals, c_sh, tmp_sh)
+    {
+        HASH_DEL(pm->signals, c_sh);
+        free(c_sh->id);
+        utarray_free(c_sh->args);
+        free(c_sh);
+    }
+
+    // freeplugin list
     utarray_free(pm->plgs);
-    HASH_CLEAR(hh, pm->hooks);
+
+    // free hooks
+    umplg_hkd_t *c_hk = NULL;
+    umplg_hkd_t *tmp_hk = NULL;
+    HASH_ITER(hh, pm->hooks, c_hk, tmp_hk)
+    {
+        HASH_DEL(pm->hooks, c_hk);
+        free(c_hk);
+    }
+
+    // free mappings
+    umplg_cmd_map_t *c_cm = NULL;
+    umplg_cmd_map_t *tmp_cm = NULL;
+    HASH_ITER(hh, pm->cmd_map, c_cm, tmp_cm)
+    {
+        HASH_DEL(pm->cmd_map, c_cm);
+        free(c_cm);
+    }
+
+    // free mngr
     free(pm);
 }
 

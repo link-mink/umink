@@ -263,18 +263,52 @@ mqtt_mngr_add_conn(struct mqtt_conn_mngr *m, umplg_mngr_t *pm, struct json_objec
 }
 
 static void
-mqtt_mngr_del_conn(struct mqtt_conn_mngr *m, const char *name)
+mqtt_mngr_process_conns(struct mqtt_conn_mngr *m, void (*f)(struct mqtt_conn_d *conn))
 {
-    struct mqtt_conn_d *tmp_conn = NULL;
     // lock
     pthread_mutex_lock(&m->mtx);
-    HASH_FIND_STR(m->conns, name, tmp_conn);
-    if (tmp_conn != NULL) {
-        HASH_DEL(m->conns, tmp_conn);
-        free(tmp_conn);
+    struct mqtt_conn_d *c_conn = NULL;
+    struct mqtt_conn_d *tmp_conn = NULL;
+    HASH_ITER(hh, m->conns, c_conn, tmp_conn)
+    {
+        f(c_conn);
     }
     // unlock
     pthread_mutex_unlock(&m->mtx);
+}
+
+static void
+mqtt_mngr_del_conn(struct mqtt_conn_mngr *m, const char *name, bool th_safe)
+{
+    struct mqtt_conn_d *tmp_conn = NULL;
+    // lock
+    if (th_safe) {
+        pthread_mutex_lock(&m->mtx);
+    }
+    HASH_FIND_STR(m->conns, name, tmp_conn);
+    if (tmp_conn != NULL) {
+        HASH_DEL(m->conns, tmp_conn);
+        MQTTAsync_destroy(&tmp_conn->client);
+        free(tmp_conn->name);
+        utarray_free(tmp_conn->topics);
+        free(tmp_conn);
+    }
+    // unlock
+    if (th_safe) {
+        pthread_mutex_unlock(&m->mtx);
+    }
+}
+
+static void
+mqtt_term(struct mqtt_conn_d *conn)
+{
+    mqtt_mngr_del_conn(mqtt_mngr, conn->name, false);
+}
+
+static void
+mqtt_mngr_free(struct mqtt_conn_mngr *m){
+    mqtt_mngr_process_conns(mqtt_mngr, &mqtt_term);
+    free(m);
 }
 
 static struct mqtt_conn_d *
@@ -400,7 +434,7 @@ init(umplg_mngr_t *pm, umplgd_t *pd)
 int
 terminate(umplg_mngr_t *pm, umplgd_t *pd)
 {
-    // TODO
+    mqtt_mngr_free(mqtt_mngr);
     return 0;
 }
 

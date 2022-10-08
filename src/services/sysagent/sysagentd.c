@@ -262,6 +262,7 @@ main(int argc, char **argv)
     // cleanup
     umd_destroy(umd);
     umplg_free_mngr(dd.pm);
+    json_object_put(dd.cfg);
     // normal exit
     return 0;
 }
