@@ -135,7 +135,6 @@ AC_CHECK_HEADERS([      arpa/inet.h \
                         sys/timeb.h \
                         syslog.h \
                         pthread.h \
-                        uthash.h \
                         unistd.h], , AC_MSG_ERROR([Header file missing!]))
 
 # /******************************************************************/
