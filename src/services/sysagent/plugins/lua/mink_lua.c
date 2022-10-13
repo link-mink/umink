@@ -40,7 +40,7 @@ mink_lua_signal(const char *s, const char *d, void *md)
     umplg_stdd_init(&e_d);
     umplg_stdd_item_add(&items, &item);
     umplg_stdd_items_add(&e_d, &items);
-    // output buffer
+    // output buffer (allocated in signal handler)
     char *b = NULL;
     size_t sz = 0;
     // process signal

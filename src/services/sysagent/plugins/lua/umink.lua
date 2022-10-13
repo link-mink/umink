@@ -139,8 +139,11 @@ local function w_mink_lua_signal(s, d)
     -- signal
     local c_str = C.mink_lua_signal(s, d, c_pm)
     -- result lua string
-    local l_str = ffi.string(c_str)
-    -- free
+    local l_str = ""
+    if c_str ~= nil then
+        l_str = ffi.string(c_str)
+    end
+    -- free C string
     ffi.C.free(c_str)
     -- return lua string
     return l_str
