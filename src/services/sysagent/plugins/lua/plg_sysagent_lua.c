@@ -319,7 +319,7 @@ lua_sig_hndlr_run(umplg_sh_t *shd, umplg_data_std_t *d_in, char **d_out, size_t 
     // copy precompiled lua chunk (pcall removes it)
     lua_pushvalue(*L, -1);
     // push plugin manager pointer
-    lua_pushlightuserdata(*L, pm);
+    lua_pushlightuserdata(*L, *pm);
     // push data
     lua_pushlightuserdata(*L, d_in);
     // run lua script
