@@ -215,11 +215,7 @@ mqtt_conn_sub(struct mqtt_conn_d *conn, const char *t)
 static void
 mqtt_conn_add_topic(struct mqtt_conn_d *conn, const char *t)
 {
-    // sanity check
-    if (conn->client == NULL) {
-        return;
-    }
-    utarray_push_back(conn->topics, t);
+    utarray_push_back(conn->topics, &t);
 }
 
 static struct mqtt_conn_mngr *

@@ -502,7 +502,7 @@ process_cfg(umplg_mngr_t *pm, struct lua_env_mngr *lem)
                 // register signal
                 umplg_reg_signal(pm, sh);
                 umd_log(UMD,
-                        UMD_LLT_ERROR,
+                        UMD_LLT_INFO,
                         "plg_lua: [attaching '%s' to '%s' event]",
                         env->path,
                         sh->id);
