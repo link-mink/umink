@@ -84,11 +84,15 @@ mqtt_on_rx(void *ctx, char *t, int t_sz, MQTTAsync_message *msg)
 {
     // context
     struct mqtt_conn_d *conn = ctx;
+    // msg data
+    char s[msg->payloadlen + 1];
+    memcpy(s, msg->payload, msg->payloadlen);
+    s[msg->payloadlen] = '\0';
     // data
     umplg_data_std_t e_d = { .items = NULL };
     umplg_data_std_items_t items = { .table = NULL };
     umplg_data_std_item_t item_topic = { .name = "mqtt_topic", .value = t };
-    umplg_data_std_item_t item_pld = { .name = "mqtt_payload", .value = t };
+    umplg_data_std_item_t item_pld = { .name = "mqtt_payload", .value = s };
     // create signal input data
     umplg_stdd_init(&e_d);
     umplg_stdd_item_add(&items, &item_topic);
