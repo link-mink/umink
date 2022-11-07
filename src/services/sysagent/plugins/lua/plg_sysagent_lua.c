@@ -333,7 +333,7 @@ lua_sig_hndlr_run(umplg_sh_t *shd, umplg_data_std_t *d_in, char **d_out, size_t 
     lua_pushlightuserdata(*L, d_in);
     // run lua script
     if (lua_pcall(*L, 2, 1, 0)) {
-        umd_log(UMD, UMD_LLT_ERROR, "plg_lua: [%s]", lua_tostring(*L, -1));
+        umd_log(UMD, UMD_LLT_ERROR, "plg_lua: [%s]:%s", shd->id, lua_tostring(*L, -1));
     }
     // check return (STRING)
     if (lua_isstring(*L, -1)) {
