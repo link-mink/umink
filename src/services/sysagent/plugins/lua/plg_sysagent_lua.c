@@ -216,7 +216,11 @@ th_lua_env(void *arg)
 
     // load lua script
     if (luaL_loadstring(L, lua_s)) {
-        umd_log(UMD, UMD_LLT_ERROR, "plg_lua: [cannot load Lua script (%s)]", env->path);
+        umd_log(UMD,
+                UMD_LLT_ERROR,
+                "plg_lua: [cannot load Lua environment (%s)]:%s",
+                env->name,
+                lua_tostring(L, -1));
         lua_close(L);
         return NULL;
     }
@@ -234,7 +238,11 @@ th_lua_env(void *arg)
         lua_pushlightuserdata(L, env->pm);
         // run lua script
         if (lua_pcall(L, 1, 1, 0)) {
-            umd_log(UMD, UMD_LLT_ERROR, "plg_lua: [%s]", lua_tostring(L, -1));
+            umd_log(UMD,
+                    UMD_LLT_ERROR,
+                    "plg_lua: [%s]:%s",
+                    env->name,
+                    lua_tostring(L, -1));
         }
         // pop result or error message
         lua_pop(L, 1);
@@ -296,8 +304,9 @@ lua_sig_hndlr_init(umplg_sh_t *shd, umplg_data_std_t *d_in)
     if (luaL_loadstring(L, lua_s)) {
         umd_log(UMD,
                 UMD_LLT_ERROR,
-                "plg_lua: [cannot load Lua script (%s)]",
-                (*env)->path);
+                "plg_lua: [cannot load Lua environment (%s)]:%s",
+                (*env)->name,
+                lua_tostring(L, -1));
         lua_close(L);
         return 5;
     }

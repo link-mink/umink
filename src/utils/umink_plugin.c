@@ -45,7 +45,7 @@ umplg_load(umplg_mngr_t *pm, const char *fpath)
         HASH_FIND_INT(pm->hooks, tmp_rh, hook);
         if (hook != NULL) {
             dlclose(h);
-            umd_log(UMD, UMD_LLT_ERROR, "umplg_load: %s", dlerror());
+            umd_log(UMD, UMD_LLT_ERROR, "umplg_load: hook [%d] already exists", *tmp_rh);
             return NULL;
         }
         tmp_rh++;
