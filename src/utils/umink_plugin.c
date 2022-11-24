@@ -126,7 +126,10 @@ umplg_reg_signal(umplg_mngr_t *pm, umplg_sh_t *sh)
     }
     // run init
     if (sh->init != NULL) {
-        sh->init(sh, NULL);
+        int ires = sh->init(sh, NULL);
+        if (ires != 0) {
+            return ires;
+        }
     }
     // add signal
     HASH_ADD_KEYPTR(hh, pm->signals, sh->id, strlen(sh->id), sh);
