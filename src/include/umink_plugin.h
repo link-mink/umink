@@ -12,6 +12,7 @@
 #define UMINK_PLUGIN
 
 #include <stdbool.h>
+#include <pthread.h>
 #include <utarray.h>
 #include <uthash.h>
 
@@ -110,16 +111,15 @@ typedef int (*umplg_cmdh_t)(umplg_mngr_t *pm,
 /**
  * Signal handler method (init)
  *
- * @param[in]   d_in      Pointer to signal handler descriptor
- * @param[in]   d_in      Pointer to plugin standard input data
+ * @param[in]   shd       Pointer to signal handler descriptor
  * @return      0 for success
  */
-typedef int (*umplg_shfn_init_t)(umplg_sh_t *shd, umplg_data_std_t *d_in);
+typedef int (*umplg_shfn_init_t)(umplg_sh_t *shd);
 
 /**
  * Signal handler method (run)
  *
- * @param[in]       d_in      Pointer to signal handler descriptor
+ * @param[in]       shd       Pointer to signal handler descriptor
  * @param[in]       d_in      Pointer to plugin standard input data
  * @param[in,out]   d_out     Output data buffer pointer
  * @param[in,out]   out_sz    Output data size pointer
@@ -129,6 +129,13 @@ typedef int (*umplg_shfn_run_t)(umplg_sh_t *shd,
                                 umplg_data_std_t *d_in,
                                 char **d_out,
                                 size_t *out_sz);
+/**
+ * Signal handler method (term)
+ *
+ * @param[in]   shd       Pointer to signal handler descriptor
+ * @return      0 for success
+ */
+typedef int (*umplg_shfn_term_t)(umplg_sh_t *shd);
 
 // string -> CMD id map
 struct umplg_cmd_map {
@@ -213,8 +220,11 @@ struct umplg_sh {
     // singal invocation method
     umplg_shfn_init_t init;
     umplg_shfn_run_t run;
+    umplg_shfn_term_t term;
     // extra args
     UT_array *args;
+    // lock
+    pthread_mutex_t mtx;
     // hashable
     UT_hash_handle hh;
 };

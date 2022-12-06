@@ -52,16 +52,16 @@ if test "x$enable_sched_fifo" != "xno"; then
     AC_DEFINE([ENABLE_SCHED_FIFO], [1], [Enable SCHED_FIFO scheduling])
 fi
 
-# /**********/
-# /* LuaJIT */
-# /**********/
+# /*******/
+# /* Lua */
+# /*******/
 AC_ARG_ENABLE(lua,
-              [AS_HELP_STRING([--enable-lua], [Enable LuaJIT [default=no]])],,
+              [AS_HELP_STRING([--enable-lua], [Enable Lua [default=no]])],,
               [enable_lua=no])
 AM_CONDITIONAL(ENABLE_LUA, test "x$enable_lua" = "xyes")
 if test "x$enable_lua" != "xno"; then
-    PKG_CHECK_MODULES([LUA], [luajit], [], [AC_MSG_ERROR([LuaJIT not found!])])
-    AC_DEFINE([ENABLE_LUA], [1], [Enable LuaJIT])
+    PKG_CHECK_MODULES([LUA], [lua], [], [AC_MSG_ERROR([Lua not found!])])
+    AC_DEFINE([ENABLE_LUA], [1], [Enable Lua])
 fi
 
 # /********/

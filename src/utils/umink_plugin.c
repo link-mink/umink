@@ -126,7 +126,7 @@ umplg_reg_signal(umplg_mngr_t *pm, umplg_sh_t *sh)
     }
     // run init
     if (sh->init != NULL) {
-        int ires = sh->init(sh, NULL);
+        int ires = sh->init(sh);
         if (ires != 0) {
             return ires;
         }
@@ -193,30 +193,19 @@ void
 umplg_free_mngr(umplg_mngr_t *pm)
 {
     umplgd_t *pd = NULL;
-    // free plugins
-    for (pd = (umplgd_t *)utarray_front(pm->plgs); pd != NULL;
-         pd = (umplgd_t *)utarray_next(pm->plgs, pd)) {
-
-        // terminate
-        pd->termh(pm, pd);
-        // free mem
-        dlclose(pd->handle);
-        free(pd->name);
-        // free(pd);
-    }
     // free signals
     umplg_sh_t *c_sh = NULL;
     umplg_sh_t *tmp_sh = NULL;
     HASH_ITER(hh, pm->signals, c_sh, tmp_sh)
     {
         HASH_DEL(pm->signals, c_sh);
+        if (c_sh->term != NULL) {
+            c_sh->term(c_sh);
+        }
         free(c_sh->id);
         utarray_free(c_sh->args);
         free(c_sh);
     }
-
-    // freeplugin list
-    utarray_free(pm->plgs);
 
     // free hooks
     umplg_hkd_t *c_hk = NULL;
@@ -235,6 +224,19 @@ umplg_free_mngr(umplg_mngr_t *pm)
         HASH_DEL(pm->cmd_map, c_cm);
         free(c_cm);
     }
+
+    // free plugins
+    for (pd = (umplgd_t *)utarray_front(pm->plgs); pd != NULL;
+         pd = (umplgd_t *)utarray_next(pm->plgs, pd)) {
+
+        // terminate
+        pd->termh(pm, pd);
+        // free mem
+        dlclose(pd->handle);
+        free(pd->name);
+    }
+    // freeplugin list
+    utarray_free(pm->plgs);
 
     // free mngr
     free(pm);

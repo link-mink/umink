@@ -11,6 +11,10 @@
 #include <umink_pkg_config.h>
 #include <umink_plugin.h>
 #include <string.h>
+#include <luaconf.h>
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 
 /*********/
 /* Types */
@@ -190,5 +194,204 @@ mink_lua_cmd_call(void *md, int argc, const char **args, void *out)
     // result
     return res;
 
+}
+
+/************/
+/* get_args */
+/************/
+int
+mink_lua_get_args(lua_State *L)
+{
+    // get std data
+    lua_pushstring(L, "mink_stdd");
+    lua_gettable(L, LUA_REGISTRYINDEX);
+    umplg_data_std_t *d = lua_touserdata(L, -1);
+    size_t sz = mink_lua_cmd_data_sz(d);
+
+    // lua table
+    lua_newtable(L);
+
+    // loop result data (rows)
+    for (int i = 0; i < sz; i++) {
+        // table key (array)
+        lua_pushnumber(L, i + 1);
+
+        // create table row
+        lua_newtable(L);
+
+        // get column count
+        size_t sz_c = mink_lua_cmd_data_row_sz(i, d);
+        // loop columns
+        for (int j = 0; j < sz_c; j++) {
+            // get column key/value
+            mink_cdata_column_t c = mink_lua_cmd_data_get_column(i, j, d);
+            // add column to lua table
+            if (c.value != NULL) {
+                int k = 1;
+                // update key, if not null
+                if (c.key != NULL && strlen(c.key) > 0) {
+                    // k = ffi.string(c.key)
+                    lua_pushstring(L, c.key);
+
+                } else {
+                    // k = 1
+                    lua_pushnumber(L, k);
+                }
+
+                // add value and add table column
+                lua_pushstring(L, c.value);
+                lua_settable(L, -3);
+            }
+        }
+
+        // add table row
+        lua_settable(L, -3);
+    }
+
+    // return table
+    return 1;
+}
+
+/********************/
+/* cmd_call wrapper */
+/********************/
+int
+mink_lua_do_cmd_call(lua_State *L)
+{
+    if (!lua_istable(L, -1)) {
+        return 0;
+    }
+    // table size (length)
+    size_t sz = lua_objlen(L, -1);
+    // crate string array
+    char *cmd_arg[sz];
+    for (int i = 0; i<sz; i++){
+        // get t[i] table value
+        lua_pushnumber(L, i + 1);
+        lua_gettable(L, -2);
+        // check type
+        if (lua_isstring(L, -1)) {
+            cmd_arg[i] = strdup(lua_tostring(L, -1));
+
+        } else if (lua_isnumber(L, -1)) {
+            cmd_arg[i] = malloc(32);
+            snprintf(cmd_arg[i], 32, "%d", (int)lua_tonumber(L, -1));
+
+        } else if (lua_isboolean(L, -1)) {
+            cmd_arg[i] = malloc(2);
+            snprintf(cmd_arg[i], 2, "%d", lua_toboolean(L, -1));
+
+        } else {
+            cmd_arg[i] = strdup("");
+        }
+        lua_pop(L, 1);
+    }
+
+    // get pm
+    lua_pushstring(L, "mink_pm");
+    lua_gettable(L, LUA_REGISTRYINDEX);
+    umplg_mngr_t *pm = lua_touserdata(L, -1);
+
+    // output buffer
+    umplg_data_std_t d = { .items = NULL };
+    umplg_stdd_init(&d);
+    // call method
+    int res = mink_lua_cmd_call(pm, sz, (const char **)cmd_arg, &d);
+    // free tmp string array
+    for (int i = 0; i < sz; i++) {
+        free(cmd_arg[i]);
+    }
+    // if successful, copy C data to lua table
+    if (res == 0){
+        // result
+        lua_newtable(L);
+        // cmd data size
+        sz = mink_lua_cmd_data_sz(&d);
+        // loop result data (rows)
+        for (int i = 0; i < sz; i++) {
+            // add row to table
+            lua_pushnumber(L, i + 1);
+            // crate table row
+            lua_newtable(L);
+            // get column count
+            size_t sz_c = mink_lua_cmd_data_row_sz(i, &d);
+            // loop columns
+            for (int j = 0; j < sz_c; j++) {
+                // get column key/value
+                mink_cdata_column_t c = mink_lua_cmd_data_get_column(i, j, &d);
+                // add column to lua table
+                if (c.value != NULL) {
+                    int k = 1;
+                    // update key, if not null
+                    if (c.key != NULL && strlen(c.key) > 0) {
+                        // k = ffi.string(c.key)
+                        lua_pushstring(L, c.key);
+
+                    } else {
+                        // k = 1
+                        lua_pushnumber(L, k);
+                    }
+
+                    // add value and add table column
+                    lua_pushstring(L, c.value);
+                    lua_settable(L, -3);
+                }
+            }
+            // add table row
+            lua_settable(L, -3);
+        }
+        // cleanup
+        umplg_stdd_free(&d);
+        return 1;
+
+    }
+    umplg_stdd_free(&d);
+    return 0;
+}
+
+/******************/
+/* signal wrapper */
+/******************/
+int
+mink_lua_do_signal(lua_State *L)
+{
+
+    // signal data/signal name
+    const char *d = NULL;
+    const char *s = NULL;
+
+    // signal name and data
+    if (lua_gettop(L) >= 2) {
+        if (!lua_isstring(L, -1) || !lua_isstring(L, -2)) {
+            return 0;
+        }
+        d = lua_tostring(L, -1);
+        s = lua_tostring(L, -2);
+
+    // signal name only
+    } else {
+        if (!lua_isstring(L, -1)) {
+            return 0;
+        }
+        s = lua_tostring(L, -1);
+    }
+
+    // get pm
+    lua_pushstring(L, "mink_pm");
+    lua_gettable(L, LUA_REGISTRYINDEX);
+    umplg_mngr_t *pm = lua_touserdata(L, -1);
+    lua_pop(L, 1);
+
+    // signal
+    char *s_res = mink_lua_signal(s, d, pm);
+    if (s_res != NULL) {
+        lua_pushstring(L, s_res);
+        free(s_res);
+
+    } else {
+        lua_pushstring(L, strdup(""));
+    }
+
+    return 1;
 }
 

@@ -167,7 +167,8 @@ umd_log(umdaemon_t *umd, enum umd_log_level_t level, const char *msg, ...)
 bool
 umd_is_terminating()
 {
-    if (UMD)
+    if (UMD != NULL){
         return UM_ATOMIC_GET(&UMD->is_terminated);
+    }
     return false;
 }

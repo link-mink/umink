@@ -108,28 +108,6 @@ proc_args(umdaemon_t *umd, int argc, char **argv)
     }
 }
 
-static void
-plgn_cpy(void *dst, const void *src)
-{
-    umplgd_t *plgn_dst = (umplgd_t *)dst;
-    umplgd_t *plgn_src = (umplgd_t *)src;
-
-    plgn_dst->name = plgn_src->name ? strdup(plgn_src->name) : NULL;
-}
-
-static void
-plgn_dtor(void *elt)
-{
-    umplgd_t *plgn = (umplgd_t *)elt;
-    if (plgn->name)
-        free(plgn->name);
-}
-
-static void
-plgn_init(void *elt)
-{
-}
-
 static char **
 fs_readdir(const char *dir, size_t *size, fs_dir_filter_t filter)
 {
@@ -260,9 +238,9 @@ main(int argc, char **argv)
     // loop until terminated
     umd_loop(umd);
     // cleanup
-    umd_destroy(umd);
     umplg_free_mngr(dd.pm);
     json_object_put(dd.cfg);
+    umd_destroy(umd);
     // normal exit
     return 0;
 }

@@ -19,6 +19,7 @@
 #include <uthash.h>
 #include <time.h>
 #include <json_object.h>
+#include <luaconf.h>
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
@@ -77,9 +78,27 @@ struct lua_env_mngr {
     pthread_mutex_t mtx;
 };
 
-// globals
+/*******************/
+/* mink lua module */
+/*******************/
+int mink_lua_do_signal(lua_State *L);
+int mink_lua_get_args(lua_State *L);
+int mink_lua_do_cmd_call(lua_State *L);
+
+// registered lua module methods
+static const struct luaL_Reg mink_lualib[] = { { "get_args", &mink_lua_get_args },
+                                               { "signal", &mink_lua_do_signal },
+                                               { "cmd_call", &mink_lua_do_cmd_call },
+                                               { NULL, NULL } };
+
+/***********/
+/* globals */
+/***********/
 struct lua_env_mngr *lenv_mngr = NULL;
 
+/*******************/
+/* Lua env manager */
+/*******************/
 struct lua_env_mngr *
 lenvm_new()
 {
@@ -92,6 +111,7 @@ lenvm_new()
 void
 lenvm_free(struct lua_env_mngr *m)
 {
+    pthread_mutex_destroy(&m->mtx);
     free(m);
 }
 
@@ -193,6 +213,17 @@ th_lua_env(void *arg)
     // init lua
     luaL_openlibs(L);
 
+    // init umink lua module
+    luaL_newlib(L, mink_lualib);
+    lua_setglobal(L, "M");
+
+    // table key = address of pm pointer
+    // =================================
+    // registry[&env->pm] = pm
+    lua_pushstring(L, "mink_pm");
+    lua_pushlightuserdata(L, env->pm);
+    lua_settable(L, LUA_REGISTRYINDEX);
+
     // load lua script
     FILE *f = fopen(env->path, "r");
     if (f == NULL) {
@@ -234,10 +265,8 @@ th_lua_env(void *arg)
     while (!umd_is_terminating() && UM_ATOMIC_GET(&env->active)) {
         // copy precompiled lua chunk (pcall removes it)
         lua_pushvalue(L, -1);
-        // push plugin manager pointer
-        lua_pushlightuserdata(L, env->pm);
         // run lua script
-        if (lua_pcall(L, 1, 1, 0)) {
+        if (lua_pcall(L, 0, 1, 0)) {
             umd_log(UMD,
                     UMD_LLT_ERROR,
                     "plg_lua: [%s]:%s",
@@ -256,15 +285,27 @@ th_lua_env(void *arg)
             nanosleep(&st, NULL);
         }
     }
-
     // remove lua state
     lua_close(L);
 
     return NULL;
 }
+
+// lua signal handler (term)
+static int
+lua_sig_hndlr_term(umplg_sh_t *shd)
+{
+    // get lua state
+    lua_State **L = utarray_eltptr(shd->args, 2);
+    lua_close(*L);
+    pthread_mutex_destroy(&shd->mtx);
+
+    return 0;
+}
+
 // lua signal handler (init)
 static int
-lua_sig_hndlr_init(umplg_sh_t *shd, umplg_data_std_t *d_in)
+lua_sig_hndlr_init(umplg_sh_t *shd)
 {
     // get lua env
     struct lua_env_d **env = utarray_eltptr(shd->args, 1);
@@ -277,6 +318,17 @@ lua_sig_hndlr_init(umplg_sh_t *shd, umplg_data_std_t *d_in)
     }
     // init lua
     luaL_openlibs(L);
+
+    // init umink lua module
+    luaL_newlib(L, mink_lualib);
+    lua_setglobal(L, "M");
+
+    // table key = address of pm pointer
+    // =================================
+    // registry[&env->pm] = pm
+    lua_pushstring(L, "mink_pm");
+    lua_pushlightuserdata(L, (*env)->pm);
+    lua_settable(L, LUA_REGISTRYINDEX);
 
     // load lua script
     FILE *f = fopen((*env)->path, "r");
@@ -321,18 +373,18 @@ lua_sig_hndlr_init(umplg_sh_t *shd, umplg_data_std_t *d_in)
 static int
 lua_sig_hndlr_run(umplg_sh_t *shd, umplg_data_std_t *d_in, char **d_out, size_t *out_sz)
 {
-    // get plugin manager and lua env
-    umplg_mngr_t **pm = utarray_eltptr(shd->args, 0);
     // get lua state
     lua_State **L = utarray_eltptr(shd->args, 2);
+    pthread_mutex_lock(&shd->mtx);
     // copy precompiled lua chunk (pcall removes it)
     lua_pushvalue(*L, -1);
-    // push plugin manager pointer
-    lua_pushlightuserdata(*L, *pm);
-    // push data
+    // registry[&env->pm] = d_in
+    lua_pushstring(*L, "mink_stdd");
     lua_pushlightuserdata(*L, d_in);
+    lua_settable(*L, LUA_REGISTRYINDEX);
+
     // run lua script
-    if (lua_pcall(*L, 2, 1, 0)) {
+    if (lua_pcall(*L, 0, 1, 0)) {
         umd_log(UMD, UMD_LLT_ERROR, "plg_lua: [%s]:%s", shd->id, lua_tostring(*L, -1));
     }
     // check return (STRING)
@@ -347,6 +399,7 @@ lua_sig_hndlr_run(umplg_sh_t *shd, umplg_data_std_t *d_in, char **d_out, size_t 
             *out_sz = 0;
             // pop result or error message
             lua_pop(*L, 1);
+            pthread_mutex_unlock(&shd->mtx);
             return 1;
 
             // success
@@ -366,6 +419,7 @@ lua_sig_hndlr_run(umplg_sh_t *shd, umplg_data_std_t *d_in, char **d_out, size_t 
             *out_sz = 0;
             // pop result or error message
             lua_pop(*L, 1);
+            pthread_mutex_unlock(&shd->mtx);
             return 1;
 
             // success
@@ -376,6 +430,7 @@ lua_sig_hndlr_run(umplg_sh_t *shd, umplg_data_std_t *d_in, char **d_out, size_t 
     }
     // pop result or error message
     lua_pop(*L, 1);
+    pthread_mutex_unlock(&shd->mtx);
     // success
     return 0;
 }
@@ -481,7 +536,7 @@ process_cfg(umplg_mngr_t *pm, struct lua_env_mngr *lem)
             }
 
             // create ENV descriptor
-            struct lua_env_d *env = malloc(sizeof(struct lua_env_d));
+            struct lua_env_d *env = calloc(1, sizeof(struct lua_env_d));
             env->name = strdup(json_object_get_string(j_n));
             env->interval = json_object_get_uint64(j_int);
             env->pm = pm;
@@ -490,19 +545,26 @@ process_cfg(umplg_mngr_t *pm, struct lua_env_mngr *lem)
 
             // register events
             int ev_l = json_object_array_length(j_ev);
-            for (int i = 0; i < ev_l; ++i) {
+            for (int j = 0; j < ev_l; ++j) {
                 // get array object (v declared in json_object_object_foreach
                 // macro)
-                v = json_object_array_get_idx(j_ev, i);
+                json_object *v2 = json_object_array_get_idx(j_ev, j);
                 // verify type
-                if (!json_object_is_type(v, json_type_string)) {
+                if (!json_object_is_type(v2, json_type_string)) {
                     continue;
                 }
                 // create signal
                 umplg_sh_t *sh = malloc(sizeof(umplg_sh_t));
-                sh->id = strdup(json_object_get_string(v));
+                sh->id = strdup(json_object_get_string(v2));
                 sh->run = &lua_sig_hndlr_run;
                 sh->init = &lua_sig_hndlr_init;
+                sh->term = &lua_sig_hndlr_term;
+
+                pthread_mutexattr_t attr;
+                pthread_mutexattr_init(&attr);
+                pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+                pthread_mutex_init(&sh->mtx, &attr);
+
                 UT_icd icd = { sizeof(void *), NULL, NULL, NULL };
                 utarray_new(sh->args, &icd);
                 utarray_push_back(sh->args, &pm);
