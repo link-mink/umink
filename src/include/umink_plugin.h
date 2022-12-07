@@ -223,6 +223,7 @@ struct umplg_sh {
     umplg_shfn_term_t term;
     // extra args
     UT_array *args;
+    bool running;
     // lock
     pthread_mutex_t mtx;
     // hashable

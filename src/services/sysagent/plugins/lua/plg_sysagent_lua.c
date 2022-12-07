@@ -261,6 +261,7 @@ th_lua_env(void *arg)
     uint64_t nsec = (uint64_t)env->interval % 1000 * 1000000;
     struct timespec st = { sec, nsec };
 
+    umd_log(UMD, UMD_LLT_INFO, "plg_lua: [starting '%s' Lua environment]", env->name);
     // run
     while (!umd_is_terminating() && UM_ATOMIC_GET(&env->active)) {
         // copy precompiled lua chunk (pcall removes it)
@@ -287,6 +288,7 @@ th_lua_env(void *arg)
     }
     // remove lua state
     lua_close(L);
+    umd_log(UMD, UMD_LLT_INFO, "plg_lua: [stopping '%s' Lua environment]", env->name);
 
     return NULL;
 }
@@ -375,15 +377,35 @@ lua_sig_hndlr_run(umplg_sh_t *shd, umplg_data_std_t *d_in, char **d_out, size_t 
 {
     // get lua state
     lua_State **L = utarray_eltptr(shd->args, 2);
+    // lock
     pthread_mutex_lock(&shd->mtx);
+    // recursion prevention
+    if (shd->running) {
+        shd->running = false;
+
+        // custom error message; cannot use luaL_error because of long jump
+        const char *err_msg = "ERR [%s]: signal recursion prevented";
+        size_t sz = snprintf(NULL, 0, err_msg, shd->id);
+        char *out = malloc(sz + 1);
+        snprintf(out, sz + 1, err_msg, shd->id);
+
+        // set output and unlock
+        *d_out = out;
+        *out_sz = sz + 1;
+        pthread_mutex_unlock(&shd->mtx);
+        return 0;
+    }
+
     // copy precompiled lua chunk (pcall removes it)
     lua_pushvalue(*L, -1);
+
     // registry[&env->pm] = d_in
     lua_pushstring(*L, "mink_stdd");
     lua_pushlightuserdata(*L, d_in);
     lua_settable(*L, LUA_REGISTRYINDEX);
 
     // run lua script
+    shd->running = true;
     if (lua_pcall(*L, 0, 1, 0)) {
         umd_log(UMD, UMD_LLT_ERROR, "plg_lua: [%s]:%s", shd->id, lua_tostring(*L, -1));
     }
@@ -399,6 +421,7 @@ lua_sig_hndlr_run(umplg_sh_t *shd, umplg_data_std_t *d_in, char **d_out, size_t 
             *out_sz = 0;
             // pop result or error message
             lua_pop(*L, 1);
+            shd->running = false;
             pthread_mutex_unlock(&shd->mtx);
             return 1;
 
@@ -419,6 +442,7 @@ lua_sig_hndlr_run(umplg_sh_t *shd, umplg_data_std_t *d_in, char **d_out, size_t 
             *out_sz = 0;
             // pop result or error message
             lua_pop(*L, 1);
+            shd->running = false;
             pthread_mutex_unlock(&shd->mtx);
             return 1;
 
@@ -430,6 +454,7 @@ lua_sig_hndlr_run(umplg_sh_t *shd, umplg_data_std_t *d_in, char **d_out, size_t 
     }
     // pop result or error message
     lua_pop(*L, 1);
+    shd->running = false;
     pthread_mutex_unlock(&shd->mtx);
     // success
     return 0;
@@ -559,6 +584,7 @@ process_cfg(umplg_mngr_t *pm, struct lua_env_mngr *lem)
                 sh->run = &lua_sig_hndlr_run;
                 sh->init = &lua_sig_hndlr_init;
                 sh->term = &lua_sig_hndlr_term;
+                sh->running = false;
 
                 pthread_mutexattr_t attr;
                 pthread_mutexattr_init(&attr);
@@ -590,7 +616,7 @@ static void
 process_lua_envs(struct lua_env_d *env)
 {
     // check if ENV should auto-start
-    if (env->interval >= 0 && strcmp(env->name, "CMD_CALL") != 0) {
+    if (env->interval >= 0 && env->active && strcmp(env->name, "CMD_CALL") != 0) {
         if (pthread_create(&env->th, NULL, th_lua_env, env)) {
             umd_log(UMD,
                     UMD_LLT_ERROR,
@@ -603,7 +629,7 @@ process_lua_envs(struct lua_env_d *env)
 static void
 shutdown_lua_envs(struct lua_env_d *env)
 {
-    if (strcmp(env->name, "CMD_CALL") != 0) {
+    if (strcmp(env->name, "CMD_CALL") != 0 && UM_ATOMIC_GET(&env->active)) {
         pthread_join(env->th, NULL);
     }
     // cleanup
