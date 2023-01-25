@@ -64,7 +64,6 @@ distclean-ax-prefix-umink-pkg-config-h:
 if ENABLE_LUA
 # sysagent lua plugin
 include src/services/sysagent/plugins/lua/Makefile.am
-pkgdata_DATA = src/services/sysagent/plugins/lua/umink.lua
 endif
 
 if ENABLE_MQTT
