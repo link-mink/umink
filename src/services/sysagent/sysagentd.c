@@ -40,10 +40,11 @@ static void
 print_help()
 {
     printf("%s - %s\n\nOptions:\n", UMD_TYPE, UMD_DESCRIPTION);
-    printf(" %s\n %s\n %s\n %s\n\n",
+    printf(" %s\n %s\n %s\n %s\n %s\n\n",
            "-?    help",
            "-i    unique daemon id",
            "-p    plugin path",
+           "-v    display version",
            "-D    start in debug mode");
     printf("%s\n %s\n", "Plugins:", "--plugins-cfg    Plugins configuration file");
 }
@@ -57,15 +58,13 @@ proc_args(umdaemon_t *umd, int argc, char **argv)
     struct option long_options[] = { { "plugins-cfg", required_argument, 0, 0 },
                                      { 0, 0, 0, 0 } };
 
-    if (argc < 3) {
-        print_help();
-        exit(EXIT_FAILURE);
-    }
+    // mandatory param count
+    int mpc = 0;
     // descriptor
     sysagentdd_t *dd = umd->data;
 
     // get args
-    while ((opt = getopt_long(argc, argv, "?i:p:D", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "?i:p:vD", long_options, &option_index)) != -1) {
         switch (opt) {
         // long options
         case 0:
@@ -75,6 +74,7 @@ proc_args(umdaemon_t *umd, int argc, char **argv)
             // plugins-cfg
             case 0:
                 dd->plg_cfg_f = optarg;
+                ++mpc;
                 break;
             default:
                 break;
@@ -90,11 +90,19 @@ proc_args(umdaemon_t *umd, int argc, char **argv)
                        "15 characters!");
                 exit(EXIT_FAILURE);
             }
+            ++mpc;
             break;
 
         // plugin path
         case 'p':
             dd->plg_pth = optarg;
+            ++mpc;
+            break;
+
+        // version
+        case 'v':
+            printf("%s\n", UMINK_VERSION);
+            exit(EXIT_SUCCESS);
             break;
 
         // debug mode
@@ -105,6 +113,11 @@ proc_args(umdaemon_t *umd, int argc, char **argv)
         default:
             break;
         }
+    }
+
+    if (mpc < 3) {
+        print_help();
+        exit(EXIT_FAILURE);
     }
 }
 

@@ -7,12 +7,15 @@
 #
 
 AC_PREREQ([2.68])
-AC_INIT([umink], [1.0], [info@link-mink.com], , [https://github.com/link-mink/umink])
+AC_INIT([umink],
+        m4_esyscmd([scripts/git-version-gen .tarball-version]),
+        [info@link-mink.com], ,
+        [https://github.com/link-mink/umink])
 config_flags="$*"
 AC_DEFINE_UNQUOTED([CONFIG_FLAGS],["$config_flags"],[Flags passed to configure])
 AC_SUBST(CONFIG_FLAGS, "$config_flags")
 AM_INIT_AUTOMAKE([foreign subdir-objects nostdinc 1.14])
-AC_CONFIG_SRCDIR([src])
+AC_CONFIG_SRCDIR([src/services/sysagent/sysagentd.c])
 AC_CONFIG_HEADERS([config.h])
 AX_PREFIX_CONFIG_H(umink_pkg_config.h)
 AC_CONFIG_MACRO_DIR([m4])

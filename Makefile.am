@@ -22,6 +22,18 @@ COMMON_INCLUDES = -I. -Isrc/include
 # umINK directories
 confdir = $(sysconfdir)/umink
 
+# dist files
+EXTRA_DIST = scripts/git-version-gen \
+             .version
+
+# pre-built
+BUILT_SOURCES = $(top_srcdir)/.version
+$(top_srcdir)/.version:
+	echo $(VERSION) > $@-t && mv $@-t $@
+
+dist-hook:
+	echo $(VERSION) > $(distdir)/.tarball-version
+
 # convenience libraries
 noinst_LTLIBRARIES = libumd.la \
                      libumplg.la \
@@ -45,7 +57,13 @@ bin_PROGRAMS = sysagentd
 pkglib_LTLIBRARIES =
 
 # sysagent
-sysagentd_SOURCES = src/services/sysagent/sysagentd.c
+sysagentd_SOURCES = src/services/sysagent/sysagentd.c \
+                    src/include/umatomic.h \
+                    src/include/umdaemon.h \
+                    src/include/umdb.h \
+                    src/include/umink_plugin.h \
+                    src/include/utarray.h \
+                    src/include/uthash.h
 sysagentd_CFLAGS = ${COMMON_INCLUDES} \
                    ${JSON_C_CFLAGS} \
                    -Isrc/services/sysagent
